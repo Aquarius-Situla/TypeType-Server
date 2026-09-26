@@ -29,8 +29,23 @@ class PlaylistService {
             .where { PlaylistVideosTable.userId eq userId }
             .groupBy(PlaylistVideosTable.playlistId)
             .associate { row -> row[PlaylistVideosTable.playlistId] to row[videoCount].toInt() }
+        val firstVideos = PlaylistVideosTable
+            .selectAll()
+            .withDistinctOn(PlaylistVideosTable.playlistId)
+            .where { PlaylistVideosTable.userId eq userId }
+            .orderBy(
+                PlaylistVideosTable.playlistId to SortOrder.ASC,
+                PlaylistVideosTable.position to SortOrder.ASC,
+            )
+            .associate { row ->
+                row[PlaylistVideosTable.playlistId] to row.toPlaylistVideoItem(emptyMap())
+            }
         playlists.map { row ->
-            row.toPlaylistSummary(videoCounts[row[PlaylistsTable.id]] ?: 0)
+            val playlistId = row[PlaylistsTable.id]
+            row.toPlaylistSummary(
+                videoCount = videoCounts[playlistId] ?: 0,
+                firstVideo = firstVideos[playlistId],
+            )
         }
     }
 

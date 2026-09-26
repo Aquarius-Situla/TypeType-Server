@@ -40,13 +40,36 @@ class PlaylistServiceTest {
     }
 
     @Test
-    fun `getAll returns playlist metadata without videos populated`() = runBlocking {
+    fun `getAll returns playlist count and first video thumbnail`() = runBlocking {
         val playlist = service.create(TEST_USER_ID, PlaylistItem(name = "Test"))
-        service.addVideo(TEST_USER_ID, playlist.id, PlaylistVideoItem(url = "https://yt.com", title = "T", thumbnail = "", duration = 100L, channelName = "C", channelUrl = "https://c", channelAvatar = "avatar", viewCount = 123L))
+        service.addVideo(
+            TEST_USER_ID,
+            playlist.id,
+            PlaylistVideoItem(
+                url = "https://yt.com/1",
+                title = "First",
+                thumbnail = "first-thumb",
+                duration = 100L,
+                channelName = "C",
+                channelUrl = "https://c",
+                channelAvatar = "avatar",
+                viewCount = 123L,
+            ),
+        )
+        service.addVideo(
+            TEST_USER_ID,
+            playlist.id,
+            PlaylistVideoItem(
+                url = "https://yt.com/2",
+                title = "Second",
+                thumbnail = "second-thumb",
+                duration = 200L,
+            ),
+        )
         val all = service.getAll(TEST_USER_ID)
         assertEquals(1, all.size)
-        assertEquals(1, all[0].videoCount)
-        assertTrue(all[0].videos.isEmpty())
+        assertEquals(2, all[0].videoCount)
+        assertEquals("first-thumb", all[0].videos.single().thumbnail)
     }
 
     @Test

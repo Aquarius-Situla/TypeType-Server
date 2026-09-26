@@ -149,7 +149,7 @@ class UserVideoMetadataRepairRoutesTest {
         val attempts = AtomicInteger()
         val repair = UserVideoMetadataRepairService(VideoMetadataResolver(alwaysSuccessfulStreamService(attempts)))
         val playlist = playlists.create(TEST_USER_ID, PlaylistItem(name = "Imported", description = ""))
-        repeat(26) { index ->
+        repeat(12) { index ->
             val url = "https://www.youtube.com/watch?v=video$index"
             playlists.addVideo(TEST_USER_ID, playlist.id, fallbackVideo(url))
         }
@@ -158,11 +158,11 @@ class UserVideoMetadataRepairRoutesTest {
         try {
             repair.schedulePlaylists(scope, TEST_USER_ID)
             withTimeout(10_000) {
-                while (playlists.getById(TEST_USER_ID, playlist.id)?.videos?.count { it.title.startsWith("Resolved") } != 26) {
+                while (playlists.getById(TEST_USER_ID, playlist.id)?.videos?.count { it.title.startsWith("Resolved") } != 12) {
                     delay(20)
                 }
             }
-            assertEquals(26, attempts.get())
+            assertEquals(12, attempts.get())
         } finally {
             scope.cancel()
         }

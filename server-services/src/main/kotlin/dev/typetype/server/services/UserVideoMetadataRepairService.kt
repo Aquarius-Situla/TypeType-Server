@@ -167,10 +167,10 @@ class UserVideoMetadataRepairService(private val resolver: VideoMetadataResolver
     private companion object {
         const val FALLBACK_TITLE_PATTERN = "YouTube video %"
         const val YOUTUBE_THUMB_PATTERN = "https://i.ytimg.com/vi/%"
-        const val MAX_REPAIR_PER_REQUEST = 25
-        const val MAX_BATCHES_PER_RUN = 8
-        const val BATCH_DELAY_MS = 750L
-        const val RETRY_DELAY_MS = 2_000L
+        const val MAX_REPAIR_PER_REQUEST = 8
+        const val MAX_BATCHES_PER_RUN = 3
+        const val BATCH_DELAY_MS = 1_500L
+        const val RETRY_DELAY_MS = 3_000L
         const val REPAIR_COOLDOWN_MS = 5 * 60 * 1000L
     }
 }

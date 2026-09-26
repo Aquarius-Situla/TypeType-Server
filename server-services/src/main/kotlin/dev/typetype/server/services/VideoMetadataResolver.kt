@@ -107,7 +107,7 @@ class VideoMetadataResolver(private val streamService: StreamService) {
 
     private companion object {
         const val FALLBACK_TITLE_PREFIX = "YouTube video "
-        const val MAX_CONCURRENT_RESOLUTIONS = 8
+        const val MAX_CONCURRENT_RESOLUTIONS = 2
         const val YOUTUBE_THUMB_PREFIX = "https://i.ytimg.com/vi/"
     }
 }

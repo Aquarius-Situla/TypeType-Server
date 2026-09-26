@@ -26,10 +26,14 @@ fun playlistProgressByUrl(userId: String, videoUrls: List<String>): Map<String, 
         }
 }
 
-fun ResultRow.toPlaylistSummary(videoCount: Int): PlaylistItem = PlaylistItem(
+fun ResultRow.toPlaylistSummary(
+    videoCount: Int,
+    firstVideo: PlaylistVideoItem?,
+): PlaylistItem = PlaylistItem(
     id = this[PlaylistsTable.id],
     name = this[PlaylistsTable.name],
     description = this[PlaylistsTable.description],
+    videos = listOfNotNull(firstVideo),
     videoCount = videoCount,
     createdAt = this[PlaylistsTable.createdAt],
 )
