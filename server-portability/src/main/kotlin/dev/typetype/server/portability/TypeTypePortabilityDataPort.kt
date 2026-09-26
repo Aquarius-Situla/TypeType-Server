@@ -24,6 +24,7 @@ class TypeTypePortabilityDataPort : PortabilityDataPort {
         if (PortabilityCategory.SUBSCRIPTIONS in request.categories) {
             SubscriptionFeedCacheInvalidation.invalidate(userId)
         }
+        DatabaseFactory.query { PortabilityMediaAvatarPropagation.propagate(userId) }
         return result
     }
 
