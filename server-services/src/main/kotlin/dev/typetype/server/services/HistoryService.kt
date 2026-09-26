@@ -3,14 +3,17 @@ package dev.typetype.server.services
 import dev.typetype.server.db.DatabaseFactory
 import dev.typetype.server.db.tables.HistoryTable
 import dev.typetype.server.db.tables.ProgressTable
+import dev.typetype.server.db.tables.SubscriptionsTable
 import dev.typetype.server.models.HistoryItem
 import org.jetbrains.exposed.v1.core.LowerCase
 import org.jetbrains.exposed.v1.core.SortOrder
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.greaterEq
+import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.core.less
 import org.jetbrains.exposed.v1.core.like
+import org.jetbrains.exposed.v1.core.neq
 import org.jetbrains.exposed.v1.core.or
 import org.jetbrains.exposed.v1.jdbc.andWhere
 import org.jetbrains.exposed.v1.jdbc.batchInsert
@@ -26,20 +29,49 @@ class HistoryService {
             .orderBy(HistoryTable.watchedAt to SortOrder.DESC, HistoryTable.id to SortOrder.DESC)
             .toList()
         HistoryProgressMapper.toHistoryItemsForExport(userId, rows)
+    }.withSubscriptionAvatars(userId)
+
+    suspend fun search(userId: String, q: String?, from: Long?, to: Long?, limit: Int, offset: Int): Pair<List<HistoryItem>, Long> {
+        val (items, total) = DatabaseFactory.query {
+            val query = HistoryTable.selectAll().where { HistoryTable.userId eq userId }
+            if (!q.isNullOrBlank()) {
+                val pattern = "%${q.lowercase()}%"
+                query.andWhere { (LowerCase(HistoryTable.title) like pattern) or (LowerCase(HistoryTable.channelName) like pattern) }
+            }
+            if (from != null) query.andWhere { HistoryTable.watchedAt greaterEq from }
+            if (to != null) query.andWhere { HistoryTable.watchedAt less to }
+            val total = query.count()
+            val rows = query.orderBy(HistoryTable.watchedAt to SortOrder.DESC, HistoryTable.id to SortOrder.DESC).limit(limit).offset(offset.toLong()).toList()
+            HistoryProgressMapper.toHistoryItems(userId, rows) to total
+        }
+        return items.withSubscriptionAvatars(userId) to total
     }
 
-    suspend fun search(userId: String, q: String?, from: Long?, to: Long?, limit: Int, offset: Int): Pair<List<HistoryItem>, Long> = DatabaseFactory.query {
-        val query = HistoryTable.selectAll().where { HistoryTable.userId eq userId }
-        if (!q.isNullOrBlank()) {
-            val pattern = "%${q.lowercase()}%"
-            query.andWhere { (LowerCase(HistoryTable.title) like pattern) or (LowerCase(HistoryTable.channelName) like pattern) }
+    private suspend fun List<HistoryItem>.withSubscriptionAvatars(userId: String): List<HistoryItem> {
+        val missingUrls = filter { it.channelAvatar.isBlank() && it.channelUrl.isNotBlank() }
+            .map { ChannelUrlCanonicalizer.canonicalize(it.channelUrl) }
+            .distinct()
+        if (missingUrls.isEmpty()) return this
+        val avatars = DatabaseFactory.query {
+            SubscriptionsTable.selectAll()
+                .where {
+                    (SubscriptionsTable.userId eq userId) and
+                        (SubscriptionsTable.channelUrl inList missingUrls) and
+                        (SubscriptionsTable.avatarUrl neq "")
+                }
+                .map {
+                    ChannelUrlCanonicalizer.canonicalize(it[SubscriptionsTable.channelUrl]) to
+                        it[SubscriptionsTable.avatarUrl]
+                }
+                .toMap()
         }
-        if (from != null) query.andWhere { HistoryTable.watchedAt greaterEq from }
-        if (to != null) query.andWhere { HistoryTable.watchedAt less to }
-        val total = query.count()
-        val rows = query.orderBy(HistoryTable.watchedAt to SortOrder.DESC, HistoryTable.id to SortOrder.DESC).limit(limit).offset(offset.toLong()).toList()
-        val items = HistoryProgressMapper.toHistoryItems(userId, rows)
-        items to total
+        if (avatars.isEmpty()) return this
+        return map { item ->
+            if (item.channelAvatar.isNotBlank()) item
+            else avatars[ChannelUrlCanonicalizer.canonicalize(item.channelUrl)]?.let {
+                item.copy(channelAvatar = it)
+            } ?: item
+        }
     }
 
     suspend fun add(userId: String, item: HistoryItem): HistoryItem = insert(userId, item, System.currentTimeMillis())

@@ -12,6 +12,7 @@ import dev.typetype.server.services.SubscriptionGroupWriteResult
 import dev.typetype.server.services.SubscriptionGroupsService
 import dev.typetype.server.services.SubscriptionSelection
 import dev.typetype.server.services.SubscriptionsService
+import dev.typetype.server.services.HistoryService
 import kotlinx.coroutines.test.runTest
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
@@ -125,6 +126,24 @@ class SubscriptionsAvatarRepairServiceTest {
         assertEquals(WATCH_AVATAR_URL, storedHistoryAvatar())
         assertEquals(WATCH_AVATAR_URL, storedWatchLaterAvatar())
         assertEquals(WATCH_AVATAR_URL, storedFavoriteAvatar())
+    }
+
+    @Test
+    fun `history reads subscription avatars without waiting for a repair write`() = runTest {
+        DatabaseFactory.query {
+            SubscriptionsTable.insert {
+                it[userId] = TEST_USER_ID
+                it[channelUrl] = WATCH_CHANNEL_URL
+                it[name] = "Channel"
+                it[avatarUrl] = WATCH_AVATAR_URL
+                it[subscribedAt] = 1L
+            }
+        }
+        addHistory(channelUrl = WATCH_CHANNEL_URL, avatarUrl = "", watchedAt = 1L)
+
+        val item = HistoryService().search(TEST_USER_ID, null, null, null, 1, 0).first.single()
+
+        assertEquals(WATCH_AVATAR_URL, item.channelAvatar)
     }
 
     private suspend fun addSubscription(channelUrl: String): Unit {
