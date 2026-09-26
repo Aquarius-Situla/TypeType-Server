@@ -30,6 +30,10 @@ class UrlValidatorTest {
         assertEquals(ProxyProvider.BILIBILI, requireProxyTarget("https://i2.hdslb.com/image.jpg").provider)
         assertEquals(
             ProxyProvider.BILIBILI,
+            requireProxyTarget("https://api.live.bilibili.com/xlive/play-gateway/master/url?cid=1").provider,
+        )
+        assertEquals(
+            ProxyProvider.BILIBILI,
             requireProxyTarget("https://upos-hz-mirrorakam.akamaized.net/video.m4s").provider,
         )
         assertEquals(

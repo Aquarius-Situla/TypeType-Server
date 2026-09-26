@@ -75,6 +75,7 @@ fun providerForProxyHost(rawHost: String): ProxyProvider? {
         host.matchesHost("bilivideo.com") ||
             host.matchesHost("bilivideo.cn") ||
             host.matchesHost("hdslb.com") ||
+            host.matchesHost("live.bilibili.com") ||
             host == "upos-hz-mirrorakam.akamaized.net" -> ProxyProvider.BILIBILI
         host.matchesHost("nicovideo.jp") || host.matchesHost("nimg.jp") -> ProxyProvider.NICONICO
         else -> null
