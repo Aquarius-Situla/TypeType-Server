@@ -7,6 +7,7 @@ import dev.typetype.server.services.AuthService
 import dev.typetype.server.services.HomeRecommendationWarmup
 import dev.typetype.server.services.NoopHomeRecommendationWarmup
 import dev.typetype.server.services.SubscriptionsService
+import dev.typetype.server.services.SubscriptionAvatarWarmupService
 import dev.typetype.server.services.SubscriptionGroupsService
 import dev.typetype.server.services.SubscriptionSelection
 import dev.typetype.server.services.PushNotificationService
@@ -28,6 +29,7 @@ internal fun Route.subscriptionsRoutes(
     warmupService: HomeRecommendationWarmup = NoopHomeRecommendationWarmup,
     groupsService: SubscriptionGroupsService = SubscriptionGroupsService(),
     pushNotificationService: PushNotificationService? = null,
+    avatarWarmupService: SubscriptionAvatarWarmupService? = null,
 ) {
     subscriptionMembershipPageRoutes(authService, groupsService)
     get("/subscriptions/group-memberships") {
@@ -48,7 +50,9 @@ internal fun Route.subscriptionsRoutes(
                     ErrorResponse("Subscription group not found", "subscription_group_not_found"),
                 )
             }
-            call.respond(subscriptionsService.getAll(userId, selection))
+            val subscriptions = subscriptionsService.getAll(userId, selection)
+            avatarWarmupService?.schedule(call.application, userId, subscriptions)
+            call.respond(subscriptions)
         }
     }
     post("/subscriptions") {

@@ -26,6 +26,7 @@ internal fun Route.userDataRoutes(
         svc.homeRecommendationWarmupService,
         svc.subscriptionGroupsService,
         svc.pushNotificationService,
+        svc.subscriptionAvatarWarmupService,
     )
     subscriptionFeedRoutes(
         svc.subscriptionFeedService,
