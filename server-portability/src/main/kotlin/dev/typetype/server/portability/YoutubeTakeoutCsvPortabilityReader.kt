@@ -29,7 +29,11 @@ object YoutubeTakeoutCsvPortabilityReader {
             .forEach { readSubscriptions(zip, it.entry, sink) }
         classified.filter { it.kind == YoutubeTakeoutCsvKind.PLAYLIST_CONTENT }
             .forEach { readPlaylistItems(zip, it.entry, sink) }
-        classified.filter { it.kind == YoutubeTakeoutCsvKind.OTHER && it.maybePortable }
+        classified.filter {
+            it.kind == YoutubeTakeoutCsvKind.OTHER &&
+                it.maybePortable &&
+                isExpectedImportCsv(it.entry.name)
+        }
             .forEach { classifiedEntry ->
                 sink.issue(
                     PortabilityIssue(
@@ -146,5 +150,8 @@ object YoutubeTakeoutCsvPortabilityReader {
 
     private fun PortabilityRecordSink.invalid(category: PortabilityCategory, kind: String) =
         issue(PortabilityIssue(category, "invalid_takeout_row", "An invalid YouTube Takeout $kind row was skipped"))
+
+    private fun isExpectedImportCsv(name: String): Boolean =
+        YoutubeTakeoutSchemaHints.isSubscriptionText(name) || YoutubeTakeoutSchemaHints.isPlaylistText(name)
 
 }

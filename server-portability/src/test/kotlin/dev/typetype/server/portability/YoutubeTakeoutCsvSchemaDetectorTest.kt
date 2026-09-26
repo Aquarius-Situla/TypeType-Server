@@ -47,6 +47,28 @@ class YoutubeTakeoutCsvSchemaDetectorTest {
         }
     }
 
+    @Test
+    fun `ignores unrelated Takeout CSV files that contain channel URLs`() {
+        val archive = directory.resolve("takeout-comments.zip")
+        ZipOutputStream(Files.newOutputStream(archive)).use { output ->
+            output.entry(
+                "Takeout/YouTube/comments/comments.csv",
+                "Comment,Author channel URL\nHello,https://www.youtube.com/channel/UC123456789012\n",
+            )
+        }
+        val input = PortabilityInputFactory.create(archive, archive.fileName.toString(), "application/zip")
+        val spool = PortabilitySpool.create(directory)
+
+        try {
+            YoutubeTakeoutPortabilityAdapter().decode(input, spool)
+
+            assertEquals(emptyMap<PortabilityCategory, Long>(), spool.counts())
+            assertTrue(spool.issues().isEmpty())
+        } finally {
+            spool.delete()
+        }
+    }
+
     private fun ZipOutputStream.entry(name: String, value: String) {
         putNextEntry(ZipEntry(name))
         write(value.toByteArray())
