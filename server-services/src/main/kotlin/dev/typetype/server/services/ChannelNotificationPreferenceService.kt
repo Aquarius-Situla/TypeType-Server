@@ -26,7 +26,7 @@ class ChannelNotificationPreferenceService(
             val row = stored[channelUrl]
             ChannelNotificationPreference(
                 channelUrl,
-                row?.get(ChannelNotificationPreferencesTable.enabled) ?: true,
+                row?.get(ChannelNotificationPreferencesTable.enabled) ?: false,
                 row?.get(ChannelNotificationPreferencesTable.updatedAt) ?: 0L,
             )
         }

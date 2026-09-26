@@ -22,13 +22,11 @@ internal fun Route.pushNotificationRoutes(
 ) {
     get("/notifications/channel-preferences") {
         call.withJwtAuth(authService) { userId ->
-            if (!call.requirePushEnabled(service)) return@withJwtAuth
             call.respond(service.listPreferences(userId))
         }
     }
     put("/notifications/channel-preferences") {
         call.withJwtAuth(authService) { userId ->
-            if (!call.requirePushEnabled(service)) return@withJwtAuth
             val request = runCatching { call.receive<ChannelNotificationPreferenceRequest>() }.getOrNull()
                 ?: return@withJwtAuth call.respond(
                     HttpStatusCode.BadRequest,
