@@ -129,6 +129,25 @@ class SubscriptionsAvatarRepairServiceTest {
     }
 
     @Test
+    fun `import propagation repairs subscription avatars from media first`() = runTest {
+        DatabaseFactory.query {
+            SubscriptionsTable.insert {
+                it[userId] = TEST_USER_ID
+                it[channelUrl] = WATCH_CHANNEL_URL
+                it[name] = "Channel"
+                it[avatarUrl] = ""
+                it[subscribedAt] = 1L
+            }
+        }
+        addHistory(channelUrl = WATCH_CHANNEL_URL, avatarUrl = WATCH_AVATAR_URL, watchedAt = 1L)
+
+        DatabaseFactory.query { PortabilityMediaAvatarPropagation.propagate(TEST_USER_ID) }
+
+        assertEquals(WATCH_AVATAR_URL, storedAvatar(WATCH_CHANNEL_URL))
+        assertEquals(WATCH_AVATAR_URL, storedHistoryAvatar())
+    }
+
+    @Test
     fun `history reads subscription avatars without waiting for a repair write`() = runTest {
         DatabaseFactory.query {
             SubscriptionsTable.insert {

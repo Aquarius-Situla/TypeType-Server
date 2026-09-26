@@ -5,7 +5,9 @@ import dev.typetype.server.db.tables.HistoryTable
 import dev.typetype.server.db.tables.PlaylistVideosTable
 import dev.typetype.server.db.tables.SubscriptionsTable
 import dev.typetype.server.db.tables.WatchLaterTable
+import dev.typetype.server.models.SubscriptionItem
 import dev.typetype.server.services.ChannelUrlCanonicalizer
+import dev.typetype.server.services.SubscriptionAvatarRepairer
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.neq
@@ -14,17 +16,24 @@ import org.jetbrains.exposed.v1.jdbc.update
 
 object PortabilityMediaAvatarPropagation {
     fun propagate(userId: String): Int {
-        val avatars = SubscriptionsTable.selectAll()
+        val subscriptions = SubscriptionsTable.selectAll()
             .where {
-                (SubscriptionsTable.userId eq userId) and
-                    (SubscriptionsTable.avatarUrl neq "")
+                SubscriptionsTable.userId eq userId
             }
             .limit(MAX_SUBSCRIPTIONS)
             .map {
-                ChannelUrlCanonicalizer.canonicalize(it[SubscriptionsTable.channelUrl]) to
-                    it[SubscriptionsTable.avatarUrl]
+                SubscriptionItem(
+                    channelUrl = it[SubscriptionsTable.channelUrl],
+                    name = it[SubscriptionsTable.name],
+                    avatarUrl = it[SubscriptionsTable.avatarUrl],
+                    subscribedAt = it[SubscriptionsTable.subscribedAt],
+                )
             }
-            .toMap()
+        val avatars = SubscriptionAvatarRepairer.repairImported(userId, subscriptions)
+            .filter { it.avatarUrl.isNotBlank() }
+            .associate {
+                ChannelUrlCanonicalizer.canonicalize(it.channelUrl) to it.avatarUrl
+            }
         return avatars.entries.sumOf { (channelUrl, avatarUrl) ->
             HistoryTable.update({
                 (HistoryTable.userId eq userId) and
