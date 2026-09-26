@@ -86,12 +86,24 @@ fun Application.installApplicationRoutes(
             searchRoutes(svc.searchService, authService, svc.accessControlService, adminSettingsService, svc.blockedService)
             suggestionRoutes(svc.suggestionService, authService, adminSettingsService)
             trendingRoutes(svc.trendingService, authService, svc.accessControlService, adminSettingsService)
-            publicPlaylistRoutes(svc.publicPlaylistService, authService, svc.accessControlService, adminSettingsService)
+            publicPlaylistRoutes(
+                svc.publicPlaylistService,
+                authService,
+                svc.accessControlService,
+                adminSettingsService,
+                svc.blockedService,
+            )
             commentRoutes(svc.commentService, authService, adminSettingsService)
             bulletCommentRoutes(svc.bulletCommentService, authService, adminSettingsService)
         }
         rateLimit(CHANNEL_ZONE) {
-            channelRoutes(svc.channelService, authService, svc.accessControlService, adminSettingsService)
+            channelRoutes(
+                svc.channelService,
+                authService,
+                svc.accessControlService,
+                adminSettingsService,
+                svc.blockedService,
+            )
             podcastRoutes(svc.podcastService, authService, adminSettingsService)
         }
         installProxyRoutes(svc)

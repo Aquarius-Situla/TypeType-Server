@@ -9,8 +9,11 @@ import dev.typetype.server.services.AccessControlProfile
 import dev.typetype.server.services.AccessControlService
 import dev.typetype.server.services.AdminSettingsService
 import dev.typetype.server.services.AuthService
+import dev.typetype.server.services.BlockedContentProfile
+import dev.typetype.server.services.BlockedService
 import dev.typetype.server.services.ChannelService
 import dev.typetype.server.services.filterAllowed
+import dev.typetype.server.services.filterBlocked
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.ApplicationCall
 import io.ktor.server.request.receive
@@ -24,20 +27,32 @@ fun Route.channelRoutes(
     authService: AuthService? = null,
     accessControlService: AccessControlService? = null,
     adminSettingsService: AdminSettingsService? = null,
+    blockedService: BlockedService? = null,
 ) {
     get("/channel") {
         val url = call.request.queryParameters["url"]
             ?: return@get call.respond(HttpStatusCode.BadRequest, ErrorResponse("Missing 'url' parameter"))
         val nextpage = call.request.queryParameters["nextpage"]
         val sort = call.request.queryParameters["sort"]?.takeIf { it.isNotBlank() }
-        val profile = call.accessProfileOrRespond(authService, accessControlService, adminSettingsService)?.profile ?: return@get
+        val access = call.accessProfileOrRespond(
+            authService,
+            accessControlService,
+            adminSettingsService,
+        ) ?: return@get
+        val blocked = access.userId?.let { blockedService?.profileFor(it) } ?: BlockedContentProfile.empty
 
         when (val result = channelService.getChannel(url = url, nextpage = nextpage, sort = sort)) {
             is ExtractionResult.Success -> {
-                if (!profile.allowsChannel(url = url, name = result.data.name)) {
+                if (!access.profile.allowsChannel(url = url, name = result.data.name)) {
                     return@get call.respond(HttpStatusCode.Forbidden, ErrorResponse("Channel is not allowed"))
                 }
-                call.respond(result.data.filterAllowed(profile))
+                if (!blocked.allowsChannel(url = url, name = result.data.name)) {
+                    return@get call.respond(
+                        HttpStatusCode.Forbidden,
+                        ErrorResponse("Channel is blocked", "content_blocked"),
+                    )
+                }
+                call.respond(result.data.filterAllowed(access.profile).filterBlocked(blocked))
             }
             is ExtractionResult.BadRequest -> call.respond(HttpStatusCode.BadRequest, ErrorResponse(result.message))
             is ExtractionResult.Failure -> call.respond(HttpStatusCode.UnprocessableEntity, ErrorResponse(result.message))
@@ -47,7 +62,12 @@ fun Route.channelRoutes(
         val request = call.receive<ChannelPageRequest>()
         val url = request.url?.takeIf { it.isNotBlank() }
             ?: return@post call.respond(HttpStatusCode.BadRequest, ErrorResponse("Missing 'url' parameter"))
-        val profile = call.accessProfileOrRespond(authService, accessControlService, adminSettingsService)?.profile ?: return@post
+        val access = call.accessProfileOrRespond(
+            authService,
+            accessControlService,
+            adminSettingsService,
+        ) ?: return@post
+        val blocked = access.userId?.let { blockedService?.profileFor(it) } ?: BlockedContentProfile.empty
 
         call.respondChannelResult(
             channelService.getChannel(
@@ -56,19 +76,29 @@ fun Route.channelRoutes(
                 sort = request.sort?.takeIf { it.isNotBlank() },
             ),
             url,
-            profile,
+            access.profile,
+            blocked,
         )
     }
     get("/channel/playlists") {
         val url = call.request.queryParameters["url"]
             ?: return@get call.respond(HttpStatusCode.BadRequest, ErrorResponse("Missing 'url' parameter"))
         val nextpage = call.request.queryParameters["nextpage"]
-        val profile = call.accessProfileOrRespond(authService, accessControlService, adminSettingsService)?.profile ?: return@get
-        if (!profile.allowsChannel(url)) {
+        val access = call.accessProfileOrRespond(
+            authService,
+            accessControlService,
+            adminSettingsService,
+        ) ?: return@get
+        val blocked = access.userId?.let { blockedService?.profileFor(it) } ?: BlockedContentProfile.empty
+        if (!access.profile.allowsChannel(url)) {
             return@get call.respond(HttpStatusCode.Forbidden, ErrorResponse("Channel is not allowed"))
         }
 
-        call.respondChannelPlaylistsResult(channelService.getPlaylists(url = url, nextpage = nextpage), profile)
+        call.respondChannelPlaylistsResult(
+            channelService.getPlaylists(url = url, nextpage = nextpage),
+            access.profile,
+            blocked,
+        )
     }
 }
 
@@ -76,13 +106,17 @@ private suspend fun ApplicationCall.respondChannelResult(
     result: ExtractionResult<ChannelResponse>,
     url: String,
     profile: AccessControlProfile,
+    blocked: BlockedContentProfile,
 ) {
     when (result) {
         is ExtractionResult.Success -> {
             if (!profile.allowsChannel(url = url, name = result.data.name)) {
                 return respond(HttpStatusCode.Forbidden, ErrorResponse("Channel is not allowed"))
             }
-            respond(result.data.filterAllowed(profile))
+            if (!blocked.allowsChannel(url = url, name = result.data.name)) {
+                return respond(HttpStatusCode.Forbidden, ErrorResponse("Channel is blocked", "content_blocked"))
+            }
+            respond(result.data.filterAllowed(profile).filterBlocked(blocked))
         }
         is ExtractionResult.BadRequest -> respond(HttpStatusCode.BadRequest, ErrorResponse(result.message))
         is ExtractionResult.Failure -> respond(HttpStatusCode.UnprocessableEntity, ErrorResponse(result.message))
@@ -92,9 +126,10 @@ private suspend fun ApplicationCall.respondChannelResult(
 private suspend fun ApplicationCall.respondChannelPlaylistsResult(
     result: ExtractionResult<ChannelPlaylistsResponse>,
     profile: AccessControlProfile,
+    blocked: BlockedContentProfile,
 ) {
     when (result) {
-        is ExtractionResult.Success -> respond(result.data.filterAllowed(profile))
+        is ExtractionResult.Success -> respond(result.data.filterAllowed(profile).filterBlocked(blocked))
         is ExtractionResult.BadRequest -> respond(HttpStatusCode.BadRequest, ErrorResponse(result.message))
         is ExtractionResult.Failure -> respond(HttpStatusCode.UnprocessableEntity, ErrorResponse(result.message))
     }

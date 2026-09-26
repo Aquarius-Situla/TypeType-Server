@@ -17,6 +17,14 @@ class ChannelTabResolverTest {
     }
 
     @Test
+    fun `niconico livestreams url maps to livestreams tab`() {
+        val url = "https://www.nicovideo.jp/user/123/livestreams"
+
+        assertEquals(ChannelTabs.LIVESTREAMS, url.toChannelTab(null))
+        assertEquals("https://www.nicovideo.jp/user/123", url.toBaseChannelUrl(ChannelTabs.LIVESTREAMS))
+    }
+
+    @Test
     fun `channel sort maps base url to videos tab`() {
         val url = "https://www.youtube.com/@test"
 
