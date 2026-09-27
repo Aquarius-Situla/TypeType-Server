@@ -19,7 +19,7 @@ dependencies {
     implementation("io.ktor:ktor-server-websockets-jvm:3.5.2")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2")
     implementation("com.github.TeamNewPipe:nanojson:1d9e1aea9049fc9f85e68b43ba39fe7be1c1f751")
-    implementation("com.github.Priveetee.PipePipeExtractor:extractor:4a4e48ff762ea60cf2915adf57ec6d94bd86f2a4")
+    implementation("com.github.Priveetee.PipePipeExtractor:extractor:4eebe6d405122f0f63b7690c41f88f6d343a66fb")
     implementation("com.fasterxml.jackson.core:jackson-core:2.22.2")
     implementation("org.slf4j:slf4j-api:2.0.16")
     testImplementation("io.ktor:ktor-server-test-host-jvm:3.5.2")
