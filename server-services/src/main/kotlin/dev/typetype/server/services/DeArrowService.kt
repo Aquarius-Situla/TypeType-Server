@@ -16,6 +16,11 @@ import java.util.Base64
 
 class DeArrowUnavailableException : RuntimeException("DeArrow is temporarily unavailable")
 
+data class DeArrowThumbnail(
+    val bytes: ByteArray,
+    val fallback: Boolean,
+)
+
 class DeArrowService(
     private val cache: CacheService,
     private val client: DeArrowRemote = DeArrowClient(),
@@ -35,17 +40,27 @@ class DeArrowService(
         return item
     }
 
-    suspend fun thumbnail(videoId: String, timestamp: Double): ByteArray? {
+    suspend fun thumbnail(videoId: String, timestamp: Double): DeArrowThumbnail? {
         if (!isValidVideoId(videoId) || !timestamp.isFinite() || timestamp < 0.0) return null
         val normalizedTime = "%.3f".format(java.util.Locale.ROOT, timestamp)
         val key = "dearrow:thumbnail:$videoId:$normalizedTime"
-        cache.get(key)?.let { return runCatching { Base64.getDecoder().decode(it) }.getOrNull() }
+        cache.get(key)?.let { return decodeThumbnail(it) }
         val generated = client.thumbnail(videoId, timestamp)?.takeIf { it.size <= MAX_THUMBNAIL_BYTES }
         val fallback = generated ?: client.fallbackThumbnail(videoId)?.takeIf { it.size <= MAX_THUMBNAIL_BYTES }
         val bytes = fallback ?: return null
-        val ttl = if (generated != null) THUMBNAIL_TTL_SECONDS else FALLBACK_THUMBNAIL_TTL_SECONDS
-        cache.set(key, Base64.getEncoder().encodeToString(bytes), ttl)
-        return bytes
+        val isFallback = generated == null
+        val ttl = if (isFallback) FALLBACK_THUMBNAIL_TTL_SECONDS else THUMBNAIL_TTL_SECONDS
+        val prefix = if (isFallback) FALLBACK_CACHE_PREFIX else GENERATED_CACHE_PREFIX
+        cache.set(key, prefix + Base64.getEncoder().encodeToString(bytes), ttl)
+        return DeArrowThumbnail(bytes, isFallback)
+    }
+
+    private fun decodeThumbnail(value: String): DeArrowThumbnail? {
+        val fallback = value.startsWith(FALLBACK_CACHE_PREFIX)
+        val payload = value.removePrefix(FALLBACK_CACHE_PREFIX).removePrefix(GENERATED_CACHE_PREFIX)
+        return runCatching {
+            DeArrowThumbnail(Base64.getDecoder().decode(payload), fallback)
+        }.getOrNull()
     }
 
     private fun parse(videoId: String, raw: String): DeArrowItem {
@@ -123,6 +138,8 @@ class DeArrowService(
         private const val THUMBNAIL_TTL_SECONDS = 604_800L
         private const val FALLBACK_THUMBNAIL_TTL_SECONDS = 900L
         private const val MAX_THUMBNAIL_BYTES = 2 * 1024 * 1024
+        private const val FALLBACK_CACHE_PREFIX = "fallback:"
+        private const val GENERATED_CACHE_PREFIX = "generated:"
         private val VIDEO_ID_REGEX = Regex("^[A-Za-z0-9_-]{11}$")
         private val TITLE_MARKER_REGEX = Regex(">(?=\\S)")
     }

@@ -59,8 +59,12 @@ class DeArrowServiceTest {
         val remote = FakeDeArrowRemote().apply { thumbnailResult = null }
         val service = DeArrowService(cache, remote)
 
-        assertArrayEquals(FakeDeArrowRemote.FALLBACK_THUMBNAIL, service.thumbnail("stZ3ZoR_8eg", 12.5))
-        assertArrayEquals(FakeDeArrowRemote.FALLBACK_THUMBNAIL, service.thumbnail("stZ3ZoR_8eg", 12.5))
+        val first = service.thumbnail("stZ3ZoR_8eg", 12.5)
+        val second = service.thumbnail("stZ3ZoR_8eg", 12.5)
+        assertArrayEquals(FakeDeArrowRemote.FALLBACK_THUMBNAIL, first?.bytes)
+        assertEquals(true, first?.fallback)
+        assertArrayEquals(FakeDeArrowRemote.FALLBACK_THUMBNAIL, second?.bytes)
+        assertEquals(true, second?.fallback)
         assertEquals(1, remote.thumbnailCalls)
         assertEquals(1, remote.fallbackThumbnailCalls)
     }

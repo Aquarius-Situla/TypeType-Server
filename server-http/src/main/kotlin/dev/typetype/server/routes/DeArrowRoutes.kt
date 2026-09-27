@@ -31,10 +31,11 @@ fun Route.deArrowRoutes(service: DeArrowService) {
         val videoId = call.request.queryParameters["videoId"].orEmpty()
         val timestamp = call.request.queryParameters["time"]?.toDoubleOrNull()
             ?: return@get call.respond(HttpStatusCode.BadRequest, ErrorResponse("Invalid time"))
-        val bytes = service.thumbnail(videoId, timestamp)
+        val thumbnail = service.thumbnail(videoId, timestamp)
             ?: return@get call.respond(HttpStatusCode.NotFound, ErrorResponse("Thumbnail not found"))
-        call.response.headers.append(HttpHeaders.CacheControl, "public, max-age=604800")
-        call.respondBytes(bytes, deArrowThumbnailContentType(bytes))
+        val maxAge = if (thumbnail.fallback) 900 else 604800
+        call.response.headers.append(HttpHeaders.CacheControl, "public, max-age=$maxAge")
+        call.respondBytes(thumbnail.bytes, deArrowThumbnailContentType(thumbnail.bytes))
     }
 }
 
