@@ -6,11 +6,13 @@ import dev.typetype.server.db.tables.HistoryTable
 import dev.typetype.server.db.tables.SubscriptionsTable
 import dev.typetype.server.db.tables.WatchLaterTable
 import dev.typetype.server.models.SubscriptionItem
+import dev.typetype.server.portability.PortabilityMediaAvatarPropagation
 import dev.typetype.server.services.SubscriptionAvatarRepairer
 import dev.typetype.server.services.SubscriptionGroupWriteResult
 import dev.typetype.server.services.SubscriptionGroupsService
 import dev.typetype.server.services.SubscriptionSelection
 import dev.typetype.server.services.SubscriptionsService
+import dev.typetype.server.services.HistoryService
 import kotlinx.coroutines.test.runTest
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
@@ -104,6 +106,65 @@ class SubscriptionsAvatarRepairServiceTest {
         assertEquals(WATCH_AVATAR_URL, repaired.last().avatarUrl)
     }
 
+    @Test
+    fun `propagates subscription avatars to imported history and collections`() = runTest {
+        DatabaseFactory.query {
+            SubscriptionsTable.insert {
+                it[userId] = TEST_USER_ID
+                it[channelUrl] = WATCH_CHANNEL_URL
+                it[name] = "Channel"
+                it[avatarUrl] = WATCH_AVATAR_URL
+                it[subscribedAt] = 1L
+            }
+        }
+        addHistory(channelUrl = WATCH_CHANNEL_URL, avatarUrl = "", watchedAt = 1L)
+        addWatchLater(channelUrl = WATCH_CHANNEL_URL, avatarUrl = "")
+        addFavorite(channelUrl = WATCH_CHANNEL_URL, avatarUrl = "")
+
+        DatabaseFactory.query { PortabilityMediaAvatarPropagation.propagate(TEST_USER_ID) }
+
+        assertEquals(WATCH_AVATAR_URL, storedHistoryAvatar())
+        assertEquals(WATCH_AVATAR_URL, storedWatchLaterAvatar())
+        assertEquals(WATCH_AVATAR_URL, storedFavoriteAvatar())
+    }
+
+    @Test
+    fun `import propagation repairs subscription avatars from media first`() = runTest {
+        DatabaseFactory.query {
+            SubscriptionsTable.insert {
+                it[userId] = TEST_USER_ID
+                it[channelUrl] = WATCH_CHANNEL_URL
+                it[name] = "Channel"
+                it[avatarUrl] = ""
+                it[subscribedAt] = 1L
+            }
+        }
+        addHistory(channelUrl = WATCH_CHANNEL_URL, avatarUrl = WATCH_AVATAR_URL, watchedAt = 1L)
+
+        DatabaseFactory.query { PortabilityMediaAvatarPropagation.propagate(TEST_USER_ID) }
+
+        assertEquals(WATCH_AVATAR_URL, storedAvatar(WATCH_CHANNEL_URL))
+        assertEquals(WATCH_AVATAR_URL, storedHistoryAvatar())
+    }
+
+    @Test
+    fun `history reads subscription avatars without waiting for a repair write`() = runTest {
+        DatabaseFactory.query {
+            SubscriptionsTable.insert {
+                it[userId] = TEST_USER_ID
+                it[channelUrl] = WATCH_CHANNEL_URL
+                it[name] = "Channel"
+                it[avatarUrl] = WATCH_AVATAR_URL
+                it[subscribedAt] = 1L
+            }
+        }
+        addHistory(channelUrl = WATCH_CHANNEL_URL, avatarUrl = "", watchedAt = 1L)
+
+        val item = HistoryService().search(TEST_USER_ID, null, null, null, 1, 0).first.single()
+
+        assertEquals(WATCH_AVATAR_URL, item.channelAvatar)
+    }
+
     private suspend fun addSubscription(channelUrl: String): Unit {
         service.add(TEST_USER_ID, SubscriptionItem(channelUrl = channelUrl, name = "Channel", avatarUrl = ""))
     }
@@ -112,6 +173,24 @@ class SubscriptionsAvatarRepairServiceTest {
         SubscriptionsTable.selectAll().where {
             (SubscriptionsTable.userId eq TEST_USER_ID) and (SubscriptionsTable.channelUrl eq channelUrl)
         }.single()[SubscriptionsTable.avatarUrl]
+    }
+
+    private suspend fun storedHistoryAvatar(): String = DatabaseFactory.query {
+        HistoryTable.selectAll().where {
+            (HistoryTable.userId eq TEST_USER_ID) and (HistoryTable.channelUrl eq WATCH_CHANNEL_URL)
+        }.single()[HistoryTable.channelAvatar]
+    }
+
+    private suspend fun storedWatchLaterAvatar(): String = DatabaseFactory.query {
+        WatchLaterTable.selectAll().where {
+            (WatchLaterTable.userId eq TEST_USER_ID) and (WatchLaterTable.channelUrl eq WATCH_CHANNEL_URL)
+        }.single()[WatchLaterTable.channelAvatar]
+    }
+
+    private suspend fun storedFavoriteAvatar(): String = DatabaseFactory.query {
+        FavoritesTable.selectAll().where {
+            (FavoritesTable.userId eq TEST_USER_ID) and (FavoritesTable.channelUrl eq WATCH_CHANNEL_URL)
+        }.single()[FavoritesTable.channelAvatar]
     }
 
     private suspend fun addWatchLater(channelUrl: String, avatarUrl: String): Unit = DatabaseFactory.query {

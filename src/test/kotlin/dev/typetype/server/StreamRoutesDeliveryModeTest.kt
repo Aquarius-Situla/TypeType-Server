@@ -27,6 +27,7 @@ class StreamRoutesDeliveryModeTest {
     private val sabrService: StreamService = mockk()
     private val nicoNicoService: StreamService = mockk()
     private val bilibiliService: StreamService = mockk()
+    private val liveHlsService: StreamService = mockk()
 
     @Test
     fun `removed classic endpoints are not registered`() = testApplication {
@@ -42,10 +43,10 @@ class StreamRoutesDeliveryModeTest {
         coEvery { sabrService.getStreamInfo(any()) } returns ExtractionResult.Success(mixedResponse())
         var sabrFilterCalled = false
         application {
-            installRoutes { _, data ->
+            installRoutes(sabrFilter = { _, data ->
                 sabrFilterCalled = true
                 data
-            }
+            })
         }
 
         val response = client.get("/streams/youtube/sabr?url=$VIDEO_URL")
@@ -70,12 +71,12 @@ class StreamRoutesDeliveryModeTest {
 
         val response = client.get("/streams/youtube/sabr?url=$VIDEO_URL")
 
-        assertEquals(HttpStatusCode.UnprocessableEntity, response.status)
+        assertEquals(HttpStatusCode.BadGateway, response.status)
         assertTrue(response.bodyAsText().contains("\"code\":\"no_playable_streams\""))
     }
 
     @Test
-    fun `sabr endpoint removes direct live manifest`() = testApplication {
+    fun `sabr endpoint exposes only HLS for live streams`() = testApplication {
         val live = sabrResponse().copy(
             hlsUrl = "/streams/hls-manifest?url=live",
             isLive = true,
@@ -88,8 +89,39 @@ class StreamRoutesDeliveryModeTest {
         val response = client.get("/streams/youtube/sabr?url=$VIDEO_URL")
 
         assertEquals(HttpStatusCode.OK, response.status)
-        assertTrue(response.bodyAsText().contains("\"hlsUrl\":\"\""))
-        assertFalse(response.bodyAsText().contains("hls-manifest"))
+        assertTrue(response.bodyAsText().contains("\"hlsUrl\":\"/streams/hls-manifest?url=live\""))
+        assertTrue(response.bodyAsText().contains("\"videoStreams\":[]"))
+        assertTrue(response.bodyAsText().contains("\"videoOnlyStreams\":[]"))
+        assertTrue(response.bodyAsText().contains("\"audioStreams\":[]"))
+        assertFalse(response.bodyAsText().contains("\"deliveryMethod\":\"sabr\""))
+        assertEquals("no-store", response.headers[HttpHeaders.CacheControl])
+    }
+
+    @Test
+    fun knownLiveEndpointReturnsOnlyHls() = testApplication {
+        val live = mixedResponse().copy(
+            hlsUrl = "/streams/hls-manifest?url=live",
+            dashMpdUrl = "/manifest/live.mpd",
+            isLive = true,
+            isLiveContent = true,
+            hasLiveManifest = true,
+        )
+        coEvery { liveHlsService.getStreamInfo(any()) } returns ExtractionResult.Success(live)
+        application { installRoutes(liveHls = liveHlsService) }
+
+        val response = client.get("/streams/youtube/live?url=$VIDEO_URL")
+        val body = response.bodyAsText()
+
+        assertEquals(HttpStatusCode.OK, response.status)
+        assertTrue(body.contains("\"hlsUrl\":\"/streams/hls-manifest?url=live\""))
+        assertTrue(body.contains("\"dashMpdUrl\":\"\""))
+        assertTrue(body.contains("\"videoStreams\":[]"))
+        assertTrue(body.contains("\"videoOnlyStreams\":[]"))
+        assertTrue(body.contains("\"audioStreams\":[]"))
+        assertTrue(body.contains("\"hasLiveManifest\":true"))
+        assertEquals("no-store", response.headers[HttpHeaders.CacheControl])
+        coVerify(exactly = 1) { liveHlsService.getStreamInfo(VIDEO_URL) }
+        coVerify(exactly = 0) { sabrService.getStreamInfo(any()) }
     }
 
     @Test
@@ -148,6 +180,7 @@ class StreamRoutesDeliveryModeTest {
     private fun Application.installRoutes(
         providerMediaHandleService: ProviderMediaHandleService? = null,
         sabrFilter: suspend (String, StreamResponse) -> StreamResponse = { _, data -> data },
+        liveHls: StreamService = liveHlsService,
     ) {
         install(ContentNegotiation) { json() }
         routing {
@@ -155,6 +188,7 @@ class StreamRoutesDeliveryModeTest {
                 streamService = sabrService,
                 nicoNicoStreamService = nicoNicoService,
                 bilibiliStreamService = bilibiliService,
+                youtubeLiveHlsStreamService = liveHls,
                 providerMediaHandleService = providerMediaHandleService,
                 sabrStreamContractFilter = sabrFilter,
             )

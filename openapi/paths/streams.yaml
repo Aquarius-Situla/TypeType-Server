@@ -1,7 +1,7 @@
 YoutubeSabrStreams:
   get:
     tags: [extraction]
-    summary: Extract YouTube SABR stream metadata
+    summary: Resolve YouTube playback metadata with HLS for live streams and SABR for VOD
     parameters:
       - name: url
         in: query
@@ -9,7 +9,7 @@ YoutubeSabrStreams:
         schema: { type: string }
     responses:
       '200':
-        description: Stream metadata containing only SABR sources.
+        description: Live streams contain only an HLS manifest; VOD responses contain only SABR sources.
         headers:
           X-Request-ID:
             $ref: ../components/common.yaml#/RequestIdHeader
@@ -27,12 +27,107 @@ YoutubeSabrStreams:
         $ref: ../components/common.yaml#/JsonError
       '403':
         $ref: ../components/common.yaml#/JsonError
-      '422':
+      '404':
+        description: YouTube reports that this video is unavailable.
+        headers:
+          X-Request-ID:
+            $ref: ../components/common.yaml#/RequestIdHeader
+        content:
+          application/json:
+            schema:
+              $ref: ../components/common.yaml#/ErrorResponse
+      '409':
+        description: The live event or premiere has not started yet.
+        headers:
+          X-Request-ID:
+            $ref: ../components/common.yaml#/RequestIdHeader
+        content:
+          application/json:
+            schema:
+              $ref: ../components/common.yaml#/ErrorResponse
+      '502':
+        description: YouTube extraction failed or returned no playable stream.
+        headers:
+          X-Request-ID:
+            $ref: ../components/common.yaml#/RequestIdHeader
+        content:
+          application/json:
+            schema:
+              $ref: ../components/common.yaml#/ErrorResponse
+      '503':
+        description: YouTube is temporarily rejecting requests from this server.
+        headers:
+          X-Request-ID:
+            $ref: ../components/common.yaml#/RequestIdHeader
+        content:
+          application/json:
+            schema:
+              $ref: ../components/common.yaml#/ErrorResponse
+YoutubeLiveHls:
+  get:
+    tags: [extraction]
+    summary: Resolve a known YouTube live stream directly to HLS
+    parameters:
+      - name: url
+        in: query
+        required: true
+        schema: { type: string }
+    responses:
+      '200':
+        description: Active live streams contain only an HLS manifest and no SABR or DASH sources.
+        headers:
+          X-Request-ID:
+            $ref: ../components/common.yaml#/RequestIdHeader
+        content:
+          application/json:
+            schema:
+              $ref: ../components/streams.yaml#/StreamResponse
+      '400':
         $ref: ../components/common.yaml#/JsonError
+      '401':
+        $ref: ../components/common.yaml#/JsonError
+      '403':
+        $ref: ../components/common.yaml#/JsonError
+      '404':
+        description: YouTube reports that this video is unavailable.
+        headers:
+          X-Request-ID:
+            $ref: ../components/common.yaml#/RequestIdHeader
+        content:
+          application/json:
+            schema:
+              $ref: ../components/common.yaml#/ErrorResponse
+      '409':
+        description: The live event or premiere has not started yet.
+        headers:
+          X-Request-ID:
+            $ref: ../components/common.yaml#/RequestIdHeader
+        content:
+          application/json:
+            schema:
+              $ref: ../components/common.yaml#/ErrorResponse
+      '502':
+        description: YouTube extraction failed or returned no playable stream.
+        headers:
+          X-Request-ID:
+            $ref: ../components/common.yaml#/RequestIdHeader
+        content:
+          application/json:
+            schema:
+              $ref: ../components/common.yaml#/ErrorResponse
+      '503':
+        description: YouTube is temporarily rejecting requests from this server.
+        headers:
+          X-Request-ID:
+            $ref: ../components/common.yaml#/RequestIdHeader
+        content:
+          application/json:
+            schema:
+              $ref: ../components/common.yaml#/ErrorResponse
 YoutubeSabrBootstrap:
   get:
     tags: [extraction]
-    summary: Resolve playable SABR audio and video formats before full metadata
+    summary: Resolve early playback metadata with HLS for live streams and SABR formats for VOD
     parameters:
       - name: url
         in: query
@@ -40,7 +135,7 @@ YoutubeSabrBootstrap:
         schema: { type: string }
     responses:
       '200':
-        description: Minimal stream metadata containing only SABR sources.
+        description: Live streams contain only an HLS manifest; VOD responses contain only SABR sources.
         headers:
           X-Request-ID:
             $ref: ../components/common.yaml#/RequestIdHeader
@@ -58,8 +153,42 @@ YoutubeSabrBootstrap:
         $ref: ../components/common.yaml#/JsonError
       '403':
         $ref: ../components/common.yaml#/JsonError
-      '422':
-        $ref: ../components/common.yaml#/JsonError
+      '404':
+        description: YouTube reports that this video is unavailable.
+        headers:
+          X-Request-ID:
+            $ref: ../components/common.yaml#/RequestIdHeader
+        content:
+          application/json:
+            schema:
+              $ref: ../components/common.yaml#/ErrorResponse
+      '409':
+        description: The live event or premiere has not started yet.
+        headers:
+          X-Request-ID:
+            $ref: ../components/common.yaml#/RequestIdHeader
+        content:
+          application/json:
+            schema:
+              $ref: ../components/common.yaml#/ErrorResponse
+      '502':
+        description: YouTube extraction failed or returned no playable stream.
+        headers:
+          X-Request-ID:
+            $ref: ../components/common.yaml#/RequestIdHeader
+        content:
+          application/json:
+            schema:
+              $ref: ../components/common.yaml#/ErrorResponse
+      '503':
+        description: YouTube is temporarily rejecting requests from this server.
+        headers:
+          X-Request-ID:
+            $ref: ../components/common.yaml#/RequestIdHeader
+        content:
+          application/json:
+            schema:
+              $ref: ../components/common.yaml#/ErrorResponse
 NicoNicoStreams:
   get:
     tags: [extraction]

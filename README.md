@@ -4,6 +4,8 @@
   <p>Extraction, API, and private user data backend for TypeType.</p>
 </div>
 
+You want to know the current position of TypeType about AI ? Go check [this](https://github.com/TypeType-Video/TypeType/blob/dev/AI_TRANSPARENCY.md).
+
 TypeType-Server is the Kotlin/Ktor HTTP API behind TypeType. It wraps [PipePipeExtractor](https://github.com/InfinityLoop1308/PipePipeExtractor) for supported media services and stores instance and user data in PostgreSQL.
 
 If you want to run a complete TypeType instance, use the [central stack](https://github.com/TypeType-Video/TypeType) rather than deploying this service alone.
