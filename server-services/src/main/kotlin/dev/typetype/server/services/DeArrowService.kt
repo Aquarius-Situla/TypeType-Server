@@ -14,18 +14,21 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import java.util.Base64
 
+class DeArrowUnavailableException : RuntimeException("DeArrow is temporarily unavailable")
+
 class DeArrowService(
     private val cache: CacheService,
     private val client: DeArrowRemote = DeArrowClient(),
 ) {
     suspend fun get(videoId: String): DeArrowItem? {
         if (!isValidVideoId(videoId)) return null
-        cache.get("dearrow:branding:v2:$videoId")?.let {
+        cache.get("dearrow:branding:v3:$videoId")?.let {
             return runCatching { CacheJson.decodeFromString(DeArrowItem.serializer(), it) }.getOrNull()
         }
-        val item = client.branding(videoId)?.let { parse(videoId, it) } ?: DeArrowItem(videoId)
+        val raw = client.branding(videoId) ?: throw DeArrowUnavailableException()
+        val item = parse(videoId, raw)
         cache.set(
-            "dearrow:branding:v2:$videoId",
+            "dearrow:branding:v3:$videoId",
             CacheJson.encodeToString(DeArrowItem.serializer(), item),
             BRANDING_TTL_SECONDS,
         )
@@ -37,8 +40,11 @@ class DeArrowService(
         val normalizedTime = "%.3f".format(java.util.Locale.ROOT, timestamp)
         val key = "dearrow:thumbnail:$videoId:$normalizedTime"
         cache.get(key)?.let { return runCatching { Base64.getDecoder().decode(it) }.getOrNull() }
-        val bytes = client.thumbnail(videoId, timestamp)?.takeIf { it.size <= MAX_THUMBNAIL_BYTES } ?: return null
-        cache.set(key, Base64.getEncoder().encodeToString(bytes), THUMBNAIL_TTL_SECONDS)
+        val generated = client.thumbnail(videoId, timestamp)?.takeIf { it.size <= MAX_THUMBNAIL_BYTES }
+        val fallback = generated ?: client.fallbackThumbnail(videoId)?.takeIf { it.size <= MAX_THUMBNAIL_BYTES }
+        val bytes = fallback ?: return null
+        val ttl = if (generated != null) THUMBNAIL_TTL_SECONDS else FALLBACK_THUMBNAIL_TTL_SECONDS
+        cache.set(key, Base64.getEncoder().encodeToString(bytes), ttl)
         return bytes
     }
 
@@ -115,6 +121,7 @@ class DeArrowService(
     companion object {
         private const val BRANDING_TTL_SECONDS = 86_400L
         private const val THUMBNAIL_TTL_SECONDS = 604_800L
+        private const val FALLBACK_THUMBNAIL_TTL_SECONDS = 900L
         private const val MAX_THUMBNAIL_BYTES = 2 * 1024 * 1024
         private val VIDEO_ID_REGEX = Regex("^[A-Za-z0-9_-]{11}$")
         private val TITLE_MARKER_REGEX = Regex(">(?=\\S)")
