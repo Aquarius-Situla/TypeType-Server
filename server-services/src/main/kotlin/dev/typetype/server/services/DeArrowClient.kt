@@ -6,6 +6,7 @@ import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import java.io.IOException
 import java.util.concurrent.TimeUnit
 
 interface DeArrowRemote {
@@ -19,8 +20,23 @@ class DeArrowClient(
 ) : DeArrowRemote {
     private val limiter = Semaphore(MAX_CONCURRENT_REQUESTS)
 
-    override suspend fun branding(videoId: String): String? =
-        get("https://sponsor.ajay.app/api/branding?videoID=$videoId&fetchAll=true")?.decodeToString()
+    override suspend fun branding(videoId: String): String? = withContext(Dispatchers.IO) {
+        limiter.withPermit {
+            try {
+                client.newCall(request("https://sponsor.ajay.app/api/branding?videoID=$videoId&fetchAll=true"))
+                    .execute()
+                    .use { response ->
+                        when {
+                            response.code == 404 -> null
+                            !response.isSuccessful -> throw DeArrowUnavailableException()
+                            else -> response.body.string().takeIf { it.isNotBlank() }
+                        }
+                    }
+            } catch (exception: IOException) {
+                throw DeArrowUnavailableException(exception)
+            }
+        }
+    }
 
     override suspend fun thumbnail(videoId: String, timestamp: Double): ByteArray? =
         get("https://dearrow-thumb.ajay.app/api/v1/getThumbnail?videoID=$videoId&time=$timestamp")
@@ -32,11 +48,7 @@ class DeArrowClient(
         limiter.withPermit {
             runCatching {
                 client.newCall(
-                    Request.Builder()
-                        .url(url)
-                        .header("User-Agent", USER_AGENT)
-                        .get()
-                        .build(),
+                    request(url),
                 ).execute().use { response ->
                     if (!response.isSuccessful) return@use null
                     response.body.bytes().takeIf { it.isNotEmpty() }
@@ -44,6 +56,12 @@ class DeArrowClient(
             }.getOrNull()
         }
     }
+
+    private fun request(url: String): Request = Request.Builder()
+        .url(url)
+        .header("User-Agent", USER_AGENT)
+        .get()
+        .build()
 
     private companion object {
         private const val MAX_CONCURRENT_REQUESTS = 6
