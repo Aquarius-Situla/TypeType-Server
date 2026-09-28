@@ -1,10 +1,12 @@
 PushDeviceRegistrationRequest:
   type: object
-  required: [deviceId, endpoint]
+  required: [deviceId, endpoint, p256dh, auth]
   properties:
     deviceId: { type: string, minLength: 1, maxLength: 128 }
     platform: { type: string, enum: [android], default: android }
     endpoint: { type: string, format: uri, minLength: 1, maxLength: 2048 }
+    p256dh: { type: string, minLength: 1, maxLength: 128, description: Base64url-encoded uncompressed P-256 subscription public key used for RFC 8291 encryption }
+    auth: { type: string, minLength: 1, maxLength: 128, description: Base64url-encoded 16-byte subscription authentication secret used for RFC 8291 encryption }
     expiresAt: { type: integer, format: int64, nullable: true }
 PushDeviceRegistrationResponse:
   type: object

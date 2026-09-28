@@ -17,6 +17,7 @@ import org.jetbrains.exposed.v1.jdbc.update
 class PushDeviceRegistry(
     private val endpointValidator: UnifiedPushEndpointValidator = UnifiedPushEndpointValidator(),
     private val maxDevicesPerAccount: Int = DEFAULT_MAX_DEVICES,
+    private val payloadEncryptor: WebPushPayloadEncryptor = WebPushPayloadEncryptor(),
 ) {
     suspend fun register(userId: String, request: PushDeviceRegistrationRequest): DeviceRegistrationResult {
         val deviceId = request.deviceId.trim()
@@ -24,6 +25,7 @@ class PushDeviceRegistry(
         val endpoint = request.endpoint.trim()
         if (!DEVICE_ID.matches(deviceId)) return DeviceRegistrationResult.Invalid("device_id")
         if (platform != "android") return DeviceRegistrationResult.UnsupportedPlatform
+        if (!payloadEncryptor.isValidSubscriptionKeys(request.p256dh, request.auth)) return DeviceRegistrationResult.Invalid("encryption_keys")
         val expiresAt = request.expiresAt
         val now = System.currentTimeMillis()
         if (expiresAt != null && (expiresAt <= now || expiresAt > now + MAX_EXPIRY_MS)) {
@@ -54,6 +56,8 @@ class PushDeviceRegistry(
                     it[PushDevicesTable.platform] = platform
                     it[PushDevicesTable.endpoint] = uri.toString()
                     it[PushDevicesTable.endpointHash] = hash
+                    it[PushDevicesTable.p256dh] = request.p256dh
+                    it[PushDevicesTable.authSecret] = request.auth
                     it[PushDevicesTable.expiresAt] = expiresAt
                     it[PushDevicesTable.createdAt] = now
                     it[PushDevicesTable.updatedAt] = now
@@ -65,6 +69,8 @@ class PushDeviceRegistry(
                     it[PushDevicesTable.platform] = platform
                     it[PushDevicesTable.endpoint] = uri.toString()
                     it[PushDevicesTable.endpointHash] = hash
+                    it[PushDevicesTable.p256dh] = request.p256dh
+                    it[PushDevicesTable.authSecret] = request.auth
                     it[PushDevicesTable.expiresAt] = expiresAt
                     it[PushDevicesTable.updatedAt] = now
                 }
@@ -100,11 +106,15 @@ class PushDeviceRegistry(
 
     suspend fun activeDevices(userId: String, now: Long = System.currentTimeMillis()): List<PushDevice> = DatabaseFactory.query {
         removeExpired(userId, now)
-        PushDevicesTable.selectAll().where { PushDevicesTable.userId eq userId }.map { row ->
+        PushDevicesTable.selectAll().where { PushDevicesTable.userId eq userId }.mapNotNull { row ->
+            val p256dh = row[PushDevicesTable.p256dh] ?: return@mapNotNull null
+            val auth = row[PushDevicesTable.authSecret] ?: return@mapNotNull null
             PushDevice(
                 id = row[PushDevicesTable.id],
                 userId = row[PushDevicesTable.userId],
                 endpoint = row[PushDevicesTable.endpoint],
+                p256dh = p256dh,
+                auth = auth,
             )
         }
     }
@@ -135,7 +145,13 @@ class PushDeviceRegistry(
     }
 }
 
-data class PushDevice(val id: String, val userId: String, val endpoint: String)
+data class PushDevice(
+    val id: String,
+    val userId: String,
+    val endpoint: String,
+    val p256dh: String,
+    val auth: String,
+)
 
 sealed interface DeviceRegistrationResult {
     data class Success(val response: PushDeviceRegistrationResponse) : DeviceRegistrationResult
