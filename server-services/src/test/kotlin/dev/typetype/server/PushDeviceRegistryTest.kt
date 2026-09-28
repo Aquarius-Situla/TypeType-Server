@@ -39,7 +39,21 @@ class PushDeviceRegistryTest {
             DeviceRegistrationResult.EndpointConflict,
             registry.register("user-b", request("device-b", "https://push.example/b")),
         )
+        val active = registry.activeDevices("user-a")
+        assertEquals("BP4z9KsN6nGRTbVYI_c7VJSPQTBtkgcy27mlmlMoZIIgDll6e3vCYLocInmYWAmS6TlzAC8wEqKK6PBru3jl7A8", active.single().p256dh)
+        assertEquals("BTBZMqHH6r4Tts7J_aSIgg", active.single().auth)
     }
 
-    private fun request(deviceId: String, endpoint: String) = PushDeviceRegistrationRequest(deviceId, endpoint = endpoint)
+    @Test
+    fun registrationRejectsMalformedEncryptionKeys() = runTest {
+        val request = request("device-a", "https://push.example/a").copy(p256dh = "not-a-key")
+        assertEquals(DeviceRegistrationResult.Invalid("encryption_keys"), registry.register("user-a", request))
+    }
+
+    private fun request(deviceId: String, endpoint: String) = PushDeviceRegistrationRequest(
+        deviceId = deviceId,
+        endpoint = endpoint,
+        p256dh = "BP4z9KsN6nGRTbVYI_c7VJSPQTBtkgcy27mlmlMoZIIgDll6e3vCYLocInmYWAmS6TlzAC8wEqKK6PBru3jl7A8",
+        auth = "BTBZMqHH6r4Tts7J_aSIgg",
+    )
 }
