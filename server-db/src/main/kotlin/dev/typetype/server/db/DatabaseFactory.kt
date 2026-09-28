@@ -125,6 +125,8 @@ object DatabaseFactory {
             )
             exec("ALTER TABLE blocked_channels ADD COLUMN IF NOT EXISTS name TEXT")
             exec("ALTER TABLE blocked_channels ADD COLUMN IF NOT EXISTS thumbnail_url TEXT")
+            exec("ALTER TABLE push_devices ADD COLUMN IF NOT EXISTS p256dh TEXT")
+            exec("ALTER TABLE push_devices ADD COLUMN IF NOT EXISTS auth_secret TEXT")
             SettingsSchemaMigrations.apply()
             exec("ALTER TABLE history ADD COLUMN IF NOT EXISTS channel_avatar TEXT NOT NULL DEFAULT ''")
             exec("ALTER TABLE history ADD COLUMN IF NOT EXISTS user_id TEXT NOT NULL DEFAULT ''")

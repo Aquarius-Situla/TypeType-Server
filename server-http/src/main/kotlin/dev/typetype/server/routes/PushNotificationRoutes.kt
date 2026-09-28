@@ -96,6 +96,7 @@ internal fun Route.pushNotificationRoutes(
 private fun DeviceRegistrationResult.Invalid.errorCode(): String = when (reason) {
     "device_id" -> "push_device_id_invalid"
     "expires_at" -> "push_expiry_invalid"
+    "encryption_keys" -> "push_encryption_keys_invalid"
     else -> "push_endpoint_invalid"
 }
 

@@ -50,7 +50,7 @@ PushDevices:
       '404': { $ref: ../components/common.yaml#/JsonError }
   post:
     tags: [user-data]
-    summary: Register or replace a UnifiedPush device endpoint
+    summary: Register or replace a UnifiedPush device subscription
     security: [{ bearerAuth: [] }]
     requestBody:
       required: true

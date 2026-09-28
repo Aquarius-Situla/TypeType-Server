@@ -9,6 +9,8 @@ object PushDevicesTable : Table("push_devices") {
     val platform = text("platform")
     val endpoint = text("endpoint")
     val endpointHash = text("endpoint_hash").uniqueIndex()
+    val p256dh = text("p256dh").nullable()
+    val authSecret = text("auth_secret").nullable()
     val expiresAt = long("expires_at").nullable()
     val createdAt = long("created_at")
     val updatedAt = long("updated_at")

@@ -131,11 +131,15 @@ class PushNotificationService(
     }
 
     private suspend fun deliver(work: DeliveryWork) {
-        when (val result = sender.send(work.device.endpoint, work.eventId, work.payload)) {
+        when (val result = sender.send(work.device.endpoint, work.eventId, work.payload, work.device.p256dh, work.device.auth)) {
             PushSendResult.Delivered -> deliveryStore.update(work, PushNotificationDeliveryStatus.DELIVERED, null)
             PushSendResult.InvalidEndpoint -> {
                 deviceRegistry.removeById(work.device.id)
                 deliveryStore.update(work, PushNotificationDeliveryStatus.INVALID, "endpoint_invalid")
+            }
+            PushSendResult.InvalidSubscription -> {
+                deviceRegistry.removeById(work.device.id)
+                deliveryStore.update(work, PushNotificationDeliveryStatus.INVALID, "subscription_keys_invalid")
             }
             is PushSendResult.Retry -> deliveryStore.update(
                 work,
