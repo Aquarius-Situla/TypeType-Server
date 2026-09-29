@@ -66,3 +66,5 @@ steps:
         fi
         printf 'Running:\n%s\n' "$${tasks}"
         ./gradlew $${tasks} --parallel --max-workers=32
+        ./gradlew validateOpenApi jacocoTestReport jacocoTestCoverageVerification \
+          --parallel --max-workers=32
