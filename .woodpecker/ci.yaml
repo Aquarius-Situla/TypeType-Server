@@ -1,0 +1,35 @@
+clone:
+  git:
+    image: woodpeckerci/plugin-git:2.10.0
+    settings:
+      partial: false
+      depth: 0
+      fetch-target-branch: true
+
+when:
+  - event: push
+    branch: dev
+  - event: pull_request
+
+steps:
+  - name: gradle
+    image: gradle:9.7.0-jdk25@sha256:24bfb4bc1b96afef848086d39a7f585c0b7217bf9581fa228a06ff305ecd9b20
+    commands:
+      - |
+        set -euo pipefail
+        export GITHUB_EVENT_NAME="${CI_PIPELINE_EVENT}"
+        export GITHUB_SHA="${CI_COMMIT_SHA}"
+        export GITHUB_EVENT_BEFORE="${CI_PREV_COMMIT_SHA:-}"
+        export GITHUB_BASE_REF="${CI_COMMIT_TARGET_BRANCH:-}"
+        export GITHUB_OUTPUT=/tmp/woodpecker-affected-tasks
+        : >"${GITHUB_OUTPUT}"
+        bash .github/scripts/ci-affected-tasks.sh
+        mapfile -t tasks < <(
+          sed -n '/^tasks<<EOF$/,/^EOF$/p' "${GITHUB_OUTPUT}" | sed '1d;$d'
+        )
+        if [ "${#tasks[@]}" -eq 0 ]; then
+          echo "No Gradle compilation or tests are required."
+          exit 0
+        fi
+        printf 'Running:\n%s\n' "${tasks[@]}"
+        ./gradlew "${tasks[@]}" --parallel --max-workers=32
