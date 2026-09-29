@@ -12,9 +12,37 @@ when:
   - event: pull_request
   - event: manual
 
+services:
+  docker:
+    image: docker:29.1.3-dind@sha256:64d6ee47ea821c986467199baa162f5ac8cde3f57b719f18e23f3ed7a7444131
+    privileged: true
+    environment:
+      DOCKER_TLS_CERTDIR: ""
+    commands:
+      - dockerd-entrypoint.sh --host=tcp://0.0.0.0:2375 --tls=false
+
 steps:
+  - name: wait-docker
+    image: docker:29.1.3-cli@sha256:e0b6ff45302985d99b9685b2a2fec50c3379bd47067493968f51da901dc53ad5
+    environment:
+      DOCKER_HOST: tcp://docker:2375
+    commands:
+      - |
+        for attempt in $$(seq 1 60); do
+          if docker info >/dev/null 2>&1; then
+            exit 0
+          fi
+          sleep 1
+        done
+        exit 1
+
   - name: gradle
     image: gradle:9.7.0-jdk25@sha256:24bfb4bc1b96afef848086d39a7f585c0b7217bf9581fa228a06ff305ecd9b20
+    depends_on: [wait-docker]
+    environment:
+      DOCKER_HOST: tcp://docker:2375
+      TESTCONTAINERS_HOST_OVERRIDE: docker
+      TESTCONTAINERS_RYUK_DISABLED: "true"
     commands:
       - |
         set -eu
