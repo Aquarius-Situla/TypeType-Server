@@ -18,7 +18,7 @@ services:
     environment:
       DOCKER_TLS_CERTDIR: ""
     commands:
-      - dockerd-entrypoint.sh --host=tcp://0.0.0.0:2375 --tls=false
+      - dockerd-entrypoint.sh --host=tcp://0.0.0.0:2375 --tls=false --insecure-registry=registry:5000
 
 steps:
   - name: wait-docker
