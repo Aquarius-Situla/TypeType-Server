@@ -63,6 +63,9 @@ is_shared_change() {
     .github/scripts/* | .github/workflows/ci.yml | .github/workflows/coverage.yml)
       return 0
       ;;
+    .woodpecker/*)
+      return 0
+      ;;
     .github/workflows/openapi.yml)
       return 0
       ;;
