@@ -10,6 +10,7 @@ when:
   - event: push
     branch: dev
   - event: pull_request
+  - event: manual
 
 steps:
   - name: gradle
@@ -23,10 +24,14 @@ steps:
         export GITHUB_BASE_REF="$${CI_COMMIT_TARGET_BRANCH:-}"
         export GITHUB_OUTPUT=/tmp/woodpecker-affected-tasks
         : >"$${GITHUB_OUTPUT}"
-        bash .github/scripts/ci-affected-tasks.sh
-        tasks="$(
-          sed -n '/^tasks<<EOF$/,/^EOF$/p' "$${GITHUB_OUTPUT}" | sed '1d;$d'
-        )"
+        if [ "$${FORCE_FULL_BUILD:-false}" = "true" ]; then
+          tasks=build
+        else
+          bash .github/scripts/ci-affected-tasks.sh
+          tasks="$(
+            sed -n '/^tasks<<EOF$/,/^EOF$/p' "$${GITHUB_OUTPUT}" | sed '1d;$d'
+          )"
+        fi
         if [ -z "$${tasks}" ]; then
           echo "No Gradle compilation or tests are required."
           exit 0
