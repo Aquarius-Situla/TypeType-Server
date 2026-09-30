@@ -1,16 +1,6 @@
 name: Docker
 
 on:
-  push:
-    branches:
-      - main
-      - dev
-    paths-ignore:
-      - "**.md"
-      - "docs/**"
-      - ".github/ISSUE_TEMPLATE/**"
-    tags:
-      - "v*"
   workflow_dispatch:
 
 env:
