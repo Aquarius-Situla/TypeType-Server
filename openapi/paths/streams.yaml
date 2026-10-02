@@ -224,7 +224,7 @@ BiliBiliStreams:
         schema: { type: string }
     responses:
       '200':
-        description: BiliBili stream metadata containing no SABR sources.
+        description: BiliBili stream metadata with collections when available, containing no SABR sources.
         content:
           application/json:
             schema:

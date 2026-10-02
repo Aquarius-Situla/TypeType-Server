@@ -1,0 +1,21 @@
+StreamCollectionEpisodeItem:
+  type: object
+  required: [videoId, title, url]
+  properties:
+    videoId: { type: string }
+    title: { type: string }
+    url: { type: string, format: uri }
+StreamCollectionSectionItem:
+  type: object
+  required: [id, title, episodes]
+  properties:
+    id: { type: string }
+    title: { type: string }
+    episodes: { type: array, items: { $ref: '#/StreamCollectionEpisodeItem' } }
+StreamCollectionItem:
+  type: object
+  required: [id, title, sections]
+  properties:
+    id: { type: string }
+    title: { type: string }
+    sections: { type: array, items: { $ref: '#/StreamCollectionSectionItem' } }
