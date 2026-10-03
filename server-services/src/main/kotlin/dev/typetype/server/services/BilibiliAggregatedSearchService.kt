@@ -3,8 +3,11 @@ package dev.typetype.server.services
 import dev.typetype.server.models.ExtractionResult
 import dev.typetype.server.models.SearchFiltersResponse
 import dev.typetype.server.models.SearchPageResponse
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.withTimeout
 
 class BilibiliAggregatedSearchService(
     private val delegate: SearchService,
@@ -32,15 +35,23 @@ class BilibiliAggregatedSearchService(
                 )
             }
             val channelDeferred = async {
-                runCatching {
-                    delegate.search(
-                        query = query,
-                        serviceId = serviceId,
-                        nextpage = null,
-                        contentFilter = BILIBILI_CHANNELS_FILTER,
-                        filters = emptyList(),
-                    )
-                }.getOrNull()
+                try {
+                    withTimeout(BILIBILI_CHANNELS_TIMEOUT_MS) {
+                        delegate.search(
+                            query = query,
+                            serviceId = serviceId,
+                            nextpage = null,
+                            contentFilter = BILIBILI_CHANNELS_FILTER,
+                            filters = emptyList(),
+                        )
+                    }
+                } catch (_: TimeoutCancellationException) {
+                    null
+                } catch (error: CancellationException) {
+                    throw error
+                } catch (_: Exception) {
+                    null
+                }
             }
 
             val videoResult = videoDeferred.await()
@@ -71,5 +82,6 @@ class BilibiliAggregatedSearchService(
 
     companion object {
         const val BILIBILI_CHANNELS_FILTER = "|2|channels"
+        const val BILIBILI_CHANNELS_TIMEOUT_MS = 8_000L
     }
 }

@@ -9,8 +9,11 @@ import dev.typetype.server.services.BILIBILI_SERVICE_ID
 import dev.typetype.server.services.BilibiliAggregatedSearchService
 import dev.typetype.server.services.SearchService
 import dev.typetype.server.services.YOUTUBE_SERVICE_ID
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
@@ -46,6 +49,8 @@ class BilibiliAggregatedSearchServiceTest {
 
     private class FakeSearchService : SearchService {
         val calls = mutableListOf<SearchCall>()
+        var channelDelayMs = 0L
+        var channelError: Throwable? = null
 
         var videoResponse: ExtractionResult<SearchPageResponse> = ExtractionResult.Success(
             SearchPageResponse(
@@ -82,6 +87,8 @@ class BilibiliAggregatedSearchServiceTest {
         ): ExtractionResult<SearchPageResponse> {
             calls.add(SearchCall(query, serviceId, nextpage, contentFilter, filters))
             return if (contentFilter == BilibiliAggregatedSearchService.BILIBILI_CHANNELS_FILTER) {
+                channelError?.let { throw it }
+                if (channelDelayMs > 0) delay(channelDelayMs)
                 channelResponse
             } else {
                 videoResponse
@@ -196,5 +203,42 @@ class BilibiliAggregatedSearchServiceTest {
         val data = (result as ExtractionResult.Success).data
         assertEquals(1, data.items.size)
         assertTrue(data.channels.isEmpty())
+    }
+
+    @Test
+    fun `slow channel query times out and preserves video results`() = runTest {
+        val fake = FakeSearchService()
+        fake.videoResponse = ExtractionResult.Success(
+            SearchPageResponse(
+                items = listOf(sampleVideo("BV1", "Test Video")),
+                nextpage = null,
+                searchSuggestion = null,
+                isCorrectedSearch = false,
+            )
+        )
+        fake.channelDelayMs = BilibiliAggregatedSearchService.BILIBILI_CHANNELS_TIMEOUT_MS + 1
+
+        val aggregated = BilibiliAggregatedSearchService(fake)
+        val result = aggregated.search("test", BILIBILI_SERVICE_ID)
+
+        assertTrue(result is ExtractionResult.Success)
+        val data = (result as ExtractionResult.Success).data
+        assertEquals(1, data.items.size)
+        assertTrue(data.channels.isEmpty())
+        assertEquals(BilibiliAggregatedSearchService.BILIBILI_CHANNELS_TIMEOUT_MS, currentTime)
+    }
+
+    @Test
+    fun `channel cancellation is rethrown`() = runTest {
+        val fake = FakeSearchService()
+        fake.channelError = CancellationException("cancelled")
+
+        val aggregated = BilibiliAggregatedSearchService(fake)
+
+        assertThrows(CancellationException::class.java) {
+            kotlinx.coroutines.runBlocking {
+                aggregated.search("test", BILIBILI_SERVICE_ID)
+            }
+        }
     }
 }
