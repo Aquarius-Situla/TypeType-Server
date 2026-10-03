@@ -1,10 +1,11 @@
 StreamCollectionEpisodeItem:
   type: object
-  required: [videoId, title, url]
+  required: [videoId, title, url, thumbnailUrl]
   properties:
     videoId: { type: string }
     title: { type: string }
     url: { type: string, format: uri }
+    thumbnailUrl: { type: string, format: uri }
 StreamCollectionSectionItem:
   type: object
   required: [id, title, episodes]

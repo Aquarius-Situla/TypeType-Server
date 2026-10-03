@@ -17,6 +17,7 @@ internal fun StreamCollectionInfo.toStreamCollectionItem(): StreamCollectionItem
                     videoId = episode.videoId.orEmpty(),
                     title = episode.title.orEmpty(),
                     url = episode.url.orEmpty(),
+                    thumbnailUrl = episode.thumbnailUrl.orEmpty(),
                 )
             },
         )

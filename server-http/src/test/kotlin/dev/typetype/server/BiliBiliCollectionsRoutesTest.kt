@@ -37,8 +37,18 @@ class BiliBiliCollectionsRoutesTest {
                     "main",
                     "Main",
                     listOf(
-                        StreamCollectionEpisodeItem("BV1first", "P1", "https://www.bilibili.com/video/BV1first"),
-                        StreamCollectionEpisodeItem("BV1second", "P2", "https://www.bilibili.com/video/BV1second"),
+                        StreamCollectionEpisodeItem(
+                            "BV1first",
+                            "P1",
+                            "https://www.bilibili.com/video/BV1first",
+                            "https://i0.hdslb.com/first.jpg",
+                        ),
+                        StreamCollectionEpisodeItem(
+                            "BV1second",
+                            "P2",
+                            "https://www.bilibili.com/video/BV1second",
+                            "https://i0.hdslb.com/second.jpg",
+                        ),
                     ),
                 ),
             ),
@@ -62,6 +72,10 @@ class BiliBiliCollectionsRoutesTest {
         assertEquals(
             listOf("BV1first", "BV1second"),
             episodes.map { it.jsonObject["videoId"]!!.jsonPrimitive.content },
+        )
+        assertEquals(
+            listOf("https://i0.hdslb.com/first.jpg", "https://i0.hdslb.com/second.jpg"),
+            episodes.map { it.jsonObject["thumbnailUrl"]!!.jsonPrimitive.content },
         )
     }
 

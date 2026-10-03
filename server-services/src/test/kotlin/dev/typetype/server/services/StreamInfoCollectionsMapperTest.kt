@@ -29,6 +29,7 @@ class StreamInfoCollectionsMapperTest {
                             listOf(
                                 StreamCollectionInfo.Episode(
                                     "BV1episode1", "P1", "https://www.bilibili.com/video/BV1episode1", 101,
+                                    "https://i0.hdslb.com/episode1.jpg",
                                 ),
                                 StreamCollectionInfo.Episode(
                                     "BV1episode2", "P2", "https://www.bilibili.com/video/BV1episode2", 102,
@@ -73,7 +74,12 @@ class StreamInfoCollectionsMapperTest {
                             "section-main",
                             "Main",
                             listOf(
-                                StreamCollectionEpisodeItem("BV1episode1", "P1", "https://www.bilibili.com/video/BV1episode1"),
+                                StreamCollectionEpisodeItem(
+                                    "BV1episode1",
+                                    "P1",
+                                    "https://www.bilibili.com/video/BV1episode1",
+                                    "https://i0.hdslb.com/episode1.jpg",
+                                ),
                                 StreamCollectionEpisodeItem("BV1episode2", "P2", "https://www.bilibili.com/video/BV1episode2"),
                             ),
                         ),

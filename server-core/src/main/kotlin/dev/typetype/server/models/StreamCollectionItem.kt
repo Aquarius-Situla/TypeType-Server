@@ -21,4 +21,5 @@ data class StreamCollectionEpisodeItem(
     val videoId: String,
     val title: String,
     val url: String,
+    val thumbnailUrl: String = "",
 )
