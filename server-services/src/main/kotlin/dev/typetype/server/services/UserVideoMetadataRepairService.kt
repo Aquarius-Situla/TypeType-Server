@@ -121,21 +121,21 @@ class UserVideoMetadataRepairService(private val resolver: VideoMetadataResolver
 
     private fun playlistNeedsRepair() =
         (PlaylistVideosTable.title like FALLBACK_TITLE_PATTERN) or
-            (PlaylistVideosTable.thumbnail like YOUTUBE_THUMB_PATTERN) or
+            (PlaylistVideosTable.thumbnail eq "") or
             (PlaylistVideosTable.duration lessEq 0L) or
             (PlaylistVideosTable.channelName eq "") or
             (PlaylistVideosTable.channelUrl eq "")
 
     private fun watchLaterNeedsRepair() =
         (WatchLaterTable.title like FALLBACK_TITLE_PATTERN) or
-            (WatchLaterTable.thumbnail like YOUTUBE_THUMB_PATTERN) or
+            (WatchLaterTable.thumbnail eq "") or
             (WatchLaterTable.duration lessEq 0L) or
             (WatchLaterTable.channelName eq "") or
             (WatchLaterTable.channelUrl eq "")
 
     private fun favoriteNeedsRepair() =
         (FavoritesTable.title like FALLBACK_TITLE_PATTERN) or
-            (FavoritesTable.thumbnail like YOUTUBE_THUMB_PATTERN) or
+            (FavoritesTable.thumbnail eq "") or
             (FavoritesTable.duration lessEq 0L) or
             (FavoritesTable.channelName eq "") or
             (FavoritesTable.channelUrl eq "")
@@ -166,7 +166,6 @@ class UserVideoMetadataRepairService(private val resolver: VideoMetadataResolver
 
     private companion object {
         const val FALLBACK_TITLE_PATTERN = "YouTube video %"
-        const val YOUTUBE_THUMB_PATTERN = "https://i.ytimg.com/vi/%"
         const val MAX_REPAIR_PER_REQUEST = 8
         const val MAX_BATCHES_PER_RUN = 3
         const val BATCH_DELAY_MS = 1_500L
