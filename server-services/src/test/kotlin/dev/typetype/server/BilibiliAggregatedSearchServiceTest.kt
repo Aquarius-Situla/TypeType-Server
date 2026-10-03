@@ -10,13 +10,14 @@ import dev.typetype.server.services.BilibiliAggregatedSearchService
 import dev.typetype.server.services.SearchService
 import dev.typetype.server.services.YOUTUBE_SERVICE_ID
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class BilibiliAggregatedSearchServiceTest {
 
     private fun sampleChannel(id: String, name: String, subs: Long) = ChannelResultItem(
@@ -216,6 +217,15 @@ class BilibiliAggregatedSearchServiceTest {
                 isCorrectedSearch = false,
             )
         )
+        fake.channelResponse = ExtractionResult.Success(
+            SearchPageResponse(
+                items = emptyList(),
+                nextpage = null,
+                searchSuggestion = null,
+                isCorrectedSearch = false,
+                channels = listOf(sampleChannel("1001", "Slow UP", 5_000_000)),
+            )
+        )
         fake.channelDelayMs = BilibiliAggregatedSearchService.BILIBILI_CHANNELS_TIMEOUT_MS + 1
 
         val aggregated = BilibiliAggregatedSearchService(fake)
@@ -225,7 +235,10 @@ class BilibiliAggregatedSearchServiceTest {
         val data = (result as ExtractionResult.Success).data
         assertEquals(1, data.items.size)
         assertTrue(data.channels.isEmpty())
-        assertEquals(BilibiliAggregatedSearchService.BILIBILI_CHANNELS_TIMEOUT_MS, currentTime)
+        assertEquals(
+            BilibiliAggregatedSearchService.BILIBILI_CHANNELS_TIMEOUT_MS,
+            testScheduler.currentTime,
+        )
     }
 
     @Test
@@ -235,10 +248,13 @@ class BilibiliAggregatedSearchServiceTest {
 
         val aggregated = BilibiliAggregatedSearchService(fake)
 
-        assertThrows(CancellationException::class.java) {
-            kotlinx.coroutines.runBlocking {
-                aggregated.search("test", BILIBILI_SERVICE_ID)
-            }
+        var cancelled = false
+        try {
+            aggregated.search("test", BILIBILI_SERVICE_ID)
+        } catch (_: CancellationException) {
+            cancelled = true
         }
+
+        assertTrue(cancelled)
     }
 }
