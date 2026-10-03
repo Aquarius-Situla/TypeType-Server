@@ -198,6 +198,33 @@ class UserVideoMetadataRepairRoutesTest {
         }
     }
 
+    @Test
+    fun `complete YouTube thumbnails do not consume the repair batches`() = runBlocking {
+        val attempts = AtomicInteger()
+        val repair = UserVideoMetadataRepairService(VideoMetadataResolver(alwaysSuccessfulStreamService(attempts)))
+        val playlist = playlists.create(TEST_USER_ID, PlaylistItem(name = "Imported", description = ""))
+        repeat(24) { index ->
+            val url = "https://www.youtube.com/watch?v=complete$index"
+            playlists.addVideo(TEST_USER_ID, playlist.id, fallbackVideo(url).copy(
+                title = "Complete $index", duration = 120L,
+                channelName = "Channel", channelUrl = "https://www.youtube.com/channel/UC1",
+            ))
+        }
+        playlists.addVideo(TEST_USER_ID, playlist.id, fallbackVideo(VIDEO_URL))
+        val scope = CoroutineScope(SupervisorJob())
+        try {
+            repair.schedulePlaylists(scope, TEST_USER_ID)
+            withTimeout(5_000) {
+                while (playlists.getById(TEST_USER_ID, playlist.id)?.videos?.last()?.title != "Resolved abc123") {
+                    delay(20)
+                }
+            }
+            assertEquals(1, attempts.get())
+        } finally {
+            scope.cancel()
+        }
+    }
+
     private fun fallbackVideo(url: String): PlaylistVideoItem = PlaylistVideoItem(
         url = url,
         title = "YouTube video ${url.substringAfterLast('=')}",

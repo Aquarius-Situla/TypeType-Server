@@ -44,4 +44,6 @@ data class StreamResponse(
     val isPostLive: Boolean = false,
     val isLiveContent: Boolean = false,
     val hasLiveManifest: Boolean = false,
+    val collections: List<StreamCollectionItem> = emptyList(),
+    val parts: List<StreamPartItem> = emptyList(),
 )

@@ -66,7 +66,7 @@ class VideoMetadataResolver(private val streamService: StreamService) {
     }
 
     private fun shouldEnrich(video: PlaylistVideoItem): Boolean =
-        video.title.startsWith(FALLBACK_TITLE_PREFIX) || video.thumbnail.startsWith(YOUTUBE_THUMB_PREFIX) ||
+        video.title.startsWith(FALLBACK_TITLE_PREFIX) || video.thumbnail.isBlank() ||
             video.duration <= 0L || video.channelName.isBlank() || video.channelUrl.isBlank()
 
     private fun VideoMetadataItem.toPlaylistVideo(video: PlaylistVideoItem): PlaylistVideoItem = video.copy(
@@ -108,7 +108,6 @@ class VideoMetadataResolver(private val streamService: StreamService) {
     private companion object {
         const val FALLBACK_TITLE_PREFIX = "YouTube video "
         const val MAX_CONCURRENT_RESOLUTIONS = 2
-        const val YOUTUBE_THUMB_PREFIX = "https://i.ytimg.com/vi/"
     }
 }
 

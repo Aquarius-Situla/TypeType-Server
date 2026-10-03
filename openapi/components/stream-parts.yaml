@@ -1,0 +1,9 @@
+StreamPartItem:
+  type: object
+  required: [page, title, url, thumbnailUrl, duration]
+  properties:
+    page: { type: integer, minimum: 1 }
+    title: { type: string }
+    url: { type: string, format: uri }
+    thumbnailUrl: { type: string, format: uri }
+    duration: { type: integer, format: int64 }

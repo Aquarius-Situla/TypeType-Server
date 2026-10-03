@@ -20,7 +20,7 @@ class CachedSearchService(
         cache = cache,
         area = "search",
         key = PublicCacheKey.of(
-            "search-v3",
+            "search-v4",
             serviceId.toString(),
             query,
             nextpage,
