@@ -167,7 +167,7 @@ internal class ExtractionServiceRegistry(
         SabrBootstrapStreamService(sabrSessionStore, tokenYoutubeSessionClient, liveHlsStreamService),
     )
     val nicoNicoStreamService = CachedStreamService(directPipePipeStreamService, cache, "stream-niconico:v1")
-    val bilibiliStreamService = CachedStreamService(directPipePipeStreamService, cache, "stream-bilibili:v2")
+    val bilibiliStreamService = CachedStreamService(directPipePipeStreamService, cache, "stream-bilibili:v3")
     val streamService = CachedStreamService(publicStreamService, cache, "stream-direct:v1")
     val searchService = CachedSearchService(YoutubeScopedSearchService(PipePipeSearchService()), cache)
     val trendingService = CachedTrendingService(

@@ -4,6 +4,7 @@ import dev.typetype.server.models.ExtractionResult
 import dev.typetype.server.models.StreamCollectionEpisodeItem
 import dev.typetype.server.models.StreamCollectionItem
 import dev.typetype.server.models.StreamCollectionSectionItem
+import dev.typetype.server.models.StreamPartItem
 import dev.typetype.server.routes.streamRoutes
 import dev.typetype.server.services.StreamService
 import io.ktor.client.request.get
@@ -89,6 +90,27 @@ class BiliBiliCollectionsRoutesTest {
 
         assertEquals(HttpStatusCode.OK, response.status)
         assertTrue(root["collections"]!!.jsonArray.isEmpty())
+    }
+
+    @Test
+    fun `GET BiliBili stream includes multipart items`() = testApplication {
+        coEvery { streamService.getStreamInfo(any()) } returns ExtractionResult.Success(
+            testStreamResponse().copy(
+                parts = listOf(
+                    StreamPartItem(1, "First", "https://www.bilibili.com/video/BV1multi?p=1", "", 60),
+                    StreamPartItem(2, "Second", "https://www.bilibili.com/video/BV1multi?p=2", "", 90),
+                ),
+            ),
+        )
+        installRoutes()
+
+        val response = client.get("/streams/bilibili?url=https://www.bilibili.com/video/BV1multi")
+        val parts = Json.parseToJsonElement(response.bodyAsText())
+            .jsonObject["parts"]!!.jsonArray
+
+        assertEquals(HttpStatusCode.OK, response.status)
+        assertEquals(listOf(1, 2), parts.map { it.jsonObject["page"]!!.jsonPrimitive.content.toInt() })
+        assertEquals(listOf("First", "Second"), parts.map { it.jsonObject["title"]!!.jsonPrimitive.content })
     }
 
     private fun io.ktor.server.testing.ApplicationTestBuilder.installRoutes() {
