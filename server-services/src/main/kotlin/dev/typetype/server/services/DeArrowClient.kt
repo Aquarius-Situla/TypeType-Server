@@ -20,7 +20,9 @@ class DeArrowClient(
     private val limiter = Semaphore(MAX_CONCURRENT_REQUESTS)
 
     override suspend fun branding(videoId: String): String? =
-        get("https://sponsor.ajay.app/api/branding?videoID=$videoId&fetchAll=true")?.decodeToString()
+        // DeArrow answers 404 for a video nobody submitted anything for: that is "nothing", not an outage.
+        get("https://sponsor.ajay.app/api/branding?videoID=$videoId&fetchAll=true", whenNotFound = NO_BRANDING)
+            ?.decodeToString()
 
     override suspend fun thumbnail(videoId: String, timestamp: Double): ByteArray? =
         get("https://dearrow-thumb.ajay.app/api/v1/getThumbnail?videoID=$videoId&time=$timestamp")
@@ -28,7 +30,7 @@ class DeArrowClient(
     override suspend fun fallbackThumbnail(videoId: String): ByteArray? =
         get("https://i.ytimg.com/vi/$videoId/hqdefault.jpg")
 
-    private suspend fun get(url: String): ByteArray? = withContext(Dispatchers.IO) {
+    private suspend fun get(url: String, whenNotFound: ByteArray? = null): ByteArray? = withContext(Dispatchers.IO) {
         limiter.withPermit {
             runCatching {
                 client.newCall(
@@ -38,6 +40,7 @@ class DeArrowClient(
                         .get()
                         .build(),
                 ).execute().use { response ->
+                    if (response.code == HTTP_NOT_FOUND) return@use whenNotFound
                     if (!response.isSuccessful) return@use null
                     response.body.bytes().takeIf { it.isNotEmpty() }
                 }
@@ -48,6 +51,8 @@ class DeArrowClient(
     private companion object {
         private const val MAX_CONCURRENT_REQUESTS = 6
         private const val USER_AGENT = "TypeType-DeArrow/1.0"
+        private const val HTTP_NOT_FOUND = 404
+        private val NO_BRANDING = "{}".toByteArray()
 
         fun defaultClient(): OkHttpClient = OkHttpClient.Builder()
             .connectTimeout(4, TimeUnit.SECONDS)
