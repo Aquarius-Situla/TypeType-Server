@@ -158,4 +158,22 @@ class InstanceRoutesTest {
         assertEquals(BuildInfo.SHORT_REVISION, root["shortRevision"]?.jsonPrimitive?.contentOrNull)
         assertEquals(BuildInfo.BUILD_TIME, root["buildTime"]?.jsonPrimitive?.contentOrNull)
     }
+
+    @Test
+    fun `instance tells whether the optional recommender is there and switched on`() = testApplication {
+        val auth = AuthService.fixed(TEST_USER_ID, hasUsers = false)
+        var installed = false
+        val instanceService = InstanceService(auth, adminSettings, recommenderInstalled = { installed })
+        application {
+            install(ContentNegotiation) { json() }
+            routing { publicMetadataRoutes(instanceService::getInstance) }
+        }
+        suspend fun capability() = Json.parseToJsonElement(client.get("/instance").bodyAsText()).jsonObject["recommender"]?.jsonObject
+        assertEquals(false, capability()?.get("installed")?.jsonPrimitive?.boolean)
+        adminSettings.upsert(AdminSettingsItem(recommenderEnabled = true))
+        assertEquals(false, capability()?.get("enabled")?.jsonPrimitive?.boolean)
+        installed = true
+        assertEquals(true, capability()?.get("installed")?.jsonPrimitive?.boolean)
+        assertEquals(true, capability()?.get("enabled")?.jsonPrimitive?.boolean)
+    }
 }

@@ -2,6 +2,7 @@ package dev.typetype.server
 
 import dev.typetype.server.routes.adminBugReportRoutes
 import dev.typetype.server.routes.adminAllowListRoutes
+import dev.typetype.server.routes.adminRecommenderRoutes
 import dev.typetype.server.routes.adminRoutes
 import dev.typetype.server.routes.adminRssRoutes
 import dev.typetype.server.routes.adminIdentityRoutes
@@ -135,6 +136,7 @@ fun Application.installApplicationRoutes(
         )
         accountProfilesRoutes(profileAccountService, authService, authSessionConfig)
         adminRoutes(authService, userAdminService, passwordResetService, adminSettingsService)
+        adminRecommenderRoutes(authService, svc.recommenderServices.adminService)
         adminRssRoutes(svc.rssFeedManagementService, authService)
         adminIdentityRoutes(svc.accountIdentityService, authService)
         adminAllowListRoutes(authService, userAdminService, svc.adminManagedAccessService, svc.adminUserLookupService, svc.allowedChannelsService, svc.allowedPlaylistsService)
