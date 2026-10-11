@@ -104,6 +104,7 @@ class RecommenderRoutesTest : RecommenderRoutesFixture() {
     @Test
     fun `the profile is the recommender's own answer`() = withApp {
         adminSettings.upsert(AdminSettingsItem(recommenderEnabled = true))
+        save("""{"enabled":true,"algorithmId":"signals"}""")
         assertEquals(HttpStatusCode.OK, call("/recommendations/profile").status)
         assertEquals(1, recommender.calls("/v1/profile"))
     }
