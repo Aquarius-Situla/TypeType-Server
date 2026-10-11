@@ -2,7 +2,10 @@ package dev.typetype.server.downloader
 
 import okhttp3.Callback
 import okhttp3.Call
+import okhttp3.ConnectionPool
+import okhttp3.Dispatcher
 import okhttp3.OkHttpClient
+import okhttp3.Protocol
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.schabi.newpipe.extractor.downloader.CancellableCall
@@ -29,9 +32,15 @@ class OkHttpDownloader private constructor(
             proxySelector: ProxySelector? = null,
         ): OkHttpDownloader {
             val clientBuilder = OkHttpClient.Builder()
+                .dispatcher(sharedDispatcher())
                 .connectTimeout(30, TimeUnit.SECONDS)
                 .readTimeout(30, TimeUnit.SECONDS)
+            if (oneRequestPerConnection()) {
+                clientBuilder.protocols(listOf(Protocol.HTTP_1_1))
+                clientBuilder.connectionPool(ConnectionPool(simultaneousPerHost(), 2, TimeUnit.MINUTES))
+            }
             proxySelector?.let(clientBuilder::proxySelector)
+            if (ExtractorRequestLog.enabled) clientBuilder.addInterceptor(ExtractorRequestLog)
             val client = clientBuilder.build()
             val streamingClient = client.newBuilder()
                 .readTimeout(streamingReadTimeoutMs, TimeUnit.MILLISECONDS)
@@ -39,14 +48,58 @@ class OkHttpDownloader private constructor(
             return OkHttpDownloader(client, streamingClient)
         }
 
+        /**
+         * Requests on their way to one host at once. The library's own 5 is too few: a video
+         * sends three together, and the others waited until the extractor gave up on them.
+         */
+        internal fun simultaneousPerHost(setting: String? = System.getenv(SIMULTANEOUS_ENV)): Int =
+            setting?.toIntOrNull()?.takeIf { it > 0 } ?: DEFAULT_SIMULTANEOUS_PER_HOST
+
+        /**
+         * "1": one request per connection (HTTP/1.1). On the single connection HTTP/2 shares,
+         * the requests of a crowd stopped being answered for minutes at a time.
+         */
+        internal fun oneRequestPerConnection(setting: String? = System.getenv(HTTP_VERSION_ENV)): Boolean =
+            setting?.trim() == "1"
+
+        private fun sharedDispatcher(): Dispatcher = Dispatcher().apply {
+            maxRequestsPerHost = simultaneousPerHost()
+            maxRequests = maxOf(maxRequests, maxRequestsPerHost * 4)
+        }
+
+        /**
+         * Called when the provider answers "too many requests". The extractor often swallows
+         * that error and carries on with a poorer result, so this is the only place it shows.
+         */
+        @Volatile
+        var onProviderRefusal: (() -> Unit)? = null
+
+        /**
+         * The text of a subtitle track is never asked for from here. The extractor downloads it
+         * for every video it opens, only to tidy the list of tracks, and the provider guards
+         * that address far more closely than any other: a few requests get the whole address
+         * of the instance refused. Opening a video does not need it.
+         */
+        internal fun isSubtitleText(url: String): Boolean = SUBTITLE_TEXT_PATH in url
+
+        private fun refuseSubtitleText(url: String) {
+            if (isSubtitleText(url)) throw java.io.IOException("Subtitle text is not fetched by the extractor")
+        }
+
+        private const val SUBTITLE_TEXT_PATH = "/api/timedtext"
+        private const val HTTP_VERSION_ENV = "EXTRACTOR_HTTP_VERSION"
+        private const val SIMULTANEOUS_ENV = "EXTRACTOR_SIMULTANEOUS_REQUESTS_PER_HOST"
+        private const val DEFAULT_SIMULTANEOUS_PER_HOST = 64
         private const val STREAMING_READ_TIMEOUT_MS = 30_000L
         private const val YOUTUBE_AUTH_USER_HEADER = "X-Goog-AuthUser"
     }
 
     override fun execute(request: ExtractorRequest): Response {
+        refuseSubtitleText(request.url())
         val httpRequest = buildOkHttpRequest(request)
         client.newCall(httpRequest).execute().use { httpResponse ->
             if (httpResponse.code == 429) {
+                runCatching { onProviderRefusal?.invoke() }
                 throw ReCaptchaException("reCaptcha required", request.url())
             }
 
@@ -55,6 +108,7 @@ class OkHttpDownloader private constructor(
     }
 
     override fun executeAsync(request: ExtractorRequest, callback: AsyncCallback): CancellableCall {
+        refuseSubtitleText(request.url())
         val httpRequest = buildOkHttpRequest(request)
         val call: Call = client.newCall(httpRequest)
         val cancellableCall = CancellableCall(call)

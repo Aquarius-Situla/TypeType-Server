@@ -14,6 +14,7 @@ import org.schabi.newpipe.extractor.downloader.Response
 import org.schabi.newpipe.extractor.exceptions.ReCaptchaException
 import java.net.InetSocketAddress
 import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 
 class OkHttpDownloaderCoreTest {
@@ -53,6 +54,75 @@ class OkHttpDownloaderCoreTest {
             var thrown: Throwable? = null
             runCatching { OkHttpDownloader.instance().execute(request) }.onFailure { thrown = it }
             assertEquals(ReCaptchaException::class.java, thrown?.javaClass)
+        } finally {
+            server.stop(0)
+        }
+    }
+
+    @Test
+    fun `a dozen requests sent together all reach the same host at once`() {
+        val together = 12
+        val arrived = CountDownLatch(together)
+        val server = HttpServer.create(InetSocketAddress(0), 0)
+        server.executor = Executors.newFixedThreadPool(together)
+        server.createContext("/") { exchange ->
+            arrived.countDown()
+            val all = arrived.await(5, TimeUnit.SECONDS)
+            exchange.sendResponseHeaders(if (all) 200 else 503, -1)
+            exchange.close()
+        }
+        server.start()
+        try {
+            val downloader = OkHttpDownloader.instance()
+            val answers = java.util.concurrent.ConcurrentLinkedQueue<Int>()
+            val done = CountDownLatch(together)
+            repeat(together) { index ->
+                val request = ExtractorRequest.newBuilder().get(urlOf(server, "/video/$index")).build()
+                downloader.executeAsync(request, object : Downloader.AsyncCallback {
+                    override fun onSuccess(response: Response) { answers += response.responseCode(); done.countDown() }
+                    override fun onError(error: Exception) { answers += -1; done.countDown() }
+                })
+            }
+            assertTrue(done.await(10, TimeUnit.SECONDS))
+            assertEquals(List(together) { 200 }, answers.toList())
+        } finally {
+            server.stop(0)
+            (server.executor as java.util.concurrent.ExecutorService).shutdownNow()
+        }
+    }
+
+    @Test
+    fun `the number of requests sent together to one host can be set and falls back when unreadable`() {
+        assertEquals(64, OkHttpDownloader.simultaneousPerHost(null))
+        assertEquals(8, OkHttpDownloader.simultaneousPerHost("8"))
+        assertEquals(64, OkHttpDownloader.simultaneousPerHost("0"))
+        assertEquals(64, OkHttpDownloader.simultaneousPerHost("many"))
+    }
+
+    @Test
+    fun `one request per connection is asked for with 1 and nothing else`() {
+        assertEquals(false, OkHttpDownloader.oneRequestPerConnection(null))
+        assertEquals(true, OkHttpDownloader.oneRequestPerConnection("1"))
+        assertEquals(false, OkHttpDownloader.oneRequestPerConnection("2"))
+    }
+
+    @Test
+    fun `the text of a subtitle track is never asked to the provider`() {
+        val asked = mutableListOf<String>()
+        val server = HttpServer.create(InetSocketAddress(0), 0)
+        server.createContext("/") { exchange ->
+            asked += exchange.requestURI.path
+            exchange.sendResponseHeaders(200, -1)
+            exchange.close()
+        }
+        server.start()
+        try {
+            val subtitle = ExtractorRequest.newBuilder().get(urlOf(server, "/api/timedtext?v=abc&lang=en")).build()
+            var thrown: Throwable? = null
+            runCatching { OkHttpDownloader.instance().execute(subtitle) }.onFailure { thrown = it }
+            assertEquals(java.io.IOException::class.java, thrown?.javaClass)
+            OkHttpDownloader.instance().execute(ExtractorRequest.newBuilder().get(urlOf(server, "/youtubei/v1/player")).build())
+            assertEquals(listOf("/youtubei/v1/player"), asked)
         } finally {
             server.stop(0)
         }
