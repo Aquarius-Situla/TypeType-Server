@@ -145,11 +145,15 @@ internal class ExtractionServiceRegistry(
         cache,
         "stream-youtube-sabr:v1",
     )
-    val youtubeLiveHlsStreamService = YoutubeScopedStreamService(
-        YoutubeDirectLiveHlsStreamService(
-            liveHlsStreamService,
-            youtubeSabrFallbackStreamService,
+    val youtubeLiveHlsStreamService = youtubeStreamGuards.cached(
+        YoutubeScopedStreamService(
+            YoutubeDirectLiveHlsStreamService(
+                liveHlsStreamService,
+                youtubeSabrFallbackStreamService,
+            ),
         ),
+        cache,
+        "stream-youtube-live-hls:v1",
     )
     val youtubeSubtitleDeliveryService = YouTubeSubtitleDeliveryService(
         StreamYouTubeSubtitleResolver(youtubeSabrStreamService, youtubeSubtitleService::fetchSubtitleInventory),
