@@ -7,11 +7,17 @@ class RecommenderSnapshotService(
     private val subscriptionsService: SubscriptionsService,
     private val blockedService: BlockedService,
     private val notForMeUrls: suspend (userId: String) -> List<String>,
+    private val algorithmDataUsedBy: suspend (locale: String, algorithmId: String) -> Set<String>?,
 ) {
     suspend fun snapshot(request: RecommenderPageRequest, resend: Boolean = false): JsonObject? {
         val nowMs = System.currentTimeMillis()
-        val filter = RecommenderDataFilter(request.settings, nowMs)
-        val historyKey = historyService.ensureSent(request.userId, request.timeoutMs, filter, force = resend) ?: return null
+        val algorithmUses = algorithmDataUsedBy(request.locale, request.algorithmId) ?: return null
+        val filter = RecommenderDataFilter(request.settings, nowMs, algorithmUses)
+        val historyKey = if (filter.needsHistorySnapshot()) {
+            historyService.ensureSent(request.userId, request.timeoutMs, filter, force = resend) ?: return null
+        } else {
+            null
+        }
         val blocked = filter.uses(RecommenderDataFilter.BLOCKED)
         val notForMe = if (filter.uses(RecommenderDataFilter.NOT_INTERESTED)) notForMeUrls(request.userId) else emptyList()
         return RecommenderSnapshotBuilder.snapshot(

@@ -175,7 +175,7 @@ abstract class RecommenderRoutesFixture {
         @JvmStatic
         fun initDb() = TestDatabase.setup()
 
-        const val ALGORITHMS = """{"default_algorithm":"signals","algorithms":[{"id":"subscriptions"},{"id":"signals"}]}"""
+        const val ALGORITHMS = """{"default_algorithm":"signals","algorithms":[{"id":"subscriptions","uses":["subscriptions","not_interested"]},{"id":"signals","uses":["history","subscriptions","favorites","not_interested","shown"]}]}"""
         const val RANKED = """{"trace":{"sources":[],"candidates_received":3,
             "dropped":[{"url":"https://www.youtube.com/watch?v=t3","why":"seen"}],
             "scores":[{"url":"https://www.youtube.com/watch?v=t2","total":0.9,"factors":{"topic":0.9}}],

@@ -40,7 +40,7 @@ object RecommenderSnapshotBuilder {
             put("locale", request.locale)
             put("seed", request.seed)
         })
-        put("history_key", request.historyKey)
+        request.historyKey?.let { put("history_key", it) }
         put("subscriptions", buildJsonArray { request.subscriptions.forEach { add(it.toSnapshot()) } })
         put("not_interested", buildJsonArray { request.notInterestedUrls.forEach { add(videoRef("not-interested", it)) } })
         put("overrides", buildJsonObject {

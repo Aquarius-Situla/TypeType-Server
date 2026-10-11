@@ -92,6 +92,7 @@ class RecommenderServices(
         deps.subscriptionsService,
         deps.blockedService,
         feedbackService::notForMeUrls,
+        catalog::dataUsedBy,
     )
     val dataService = RecommenderDataService(
         deps.subscriptionsService,

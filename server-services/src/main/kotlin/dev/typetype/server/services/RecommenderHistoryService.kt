@@ -8,11 +8,28 @@ class RecommenderHistoryService(
     private val config: RecommenderConfig,
 ) {
     suspend fun ensureSent(userId: String, timeoutMs: Long, filter: RecommenderDataFilter, force: Boolean = false): String? {
-        val key = listOf(RecommenderHistoryFingerprint.of(userId), filter.digest()).filter { it.isNotEmpty() }.joinToString("-")
+        val includeHistory = filter.uses(RecommenderDataFilter.HISTORY) ||
+            filter.uses(RecommenderDataFilter.SHORTS_HISTORY)
+        val includeFavorites = filter.uses(RecommenderDataFilter.FAVORITES)
+        if (!includeHistory && !includeFavorites) return null
+        val fingerprint = RecommenderHistoryFingerprint.of(userId, includeHistory, includeFavorites)
+        val key = listOf(fingerprint, filter.digest()).filter { it.isNotEmpty() }.joinToString("-")
         if (!force && runCatching { cache.get(sentKey(key)) }.getOrNull() != null) return key
-        val watches = filter.history(RecommenderUserData.watches(userId, config.historyMaxItems))
-        val positions = RecommenderUserData.positionsMs(userId, watches.filter { it.duration > 0L }.map { it.url })
-        val likes = filter.favorites(RecommenderUserData.likes(userId, config.favoritesMaxItems))
+        val watches = if (includeHistory) {
+            filter.history(RecommenderUserData.watches(userId, config.historyMaxItems))
+        } else {
+            emptyList()
+        }
+        val positions: Map<String, Long> = if (watches.isEmpty()) {
+            emptyMap()
+        } else {
+            RecommenderUserData.positionsMs(userId, watches.filter { it.duration > 0L }.map { it.url })
+        }
+        val likes = if (includeFavorites) {
+            filter.favorites(RecommenderUserData.likes(userId, config.favoritesMaxItems))
+        } else {
+            emptyList()
+        }
         val size = config.historyChunkItems
         val parts = maxOf(1, (watches.size + size - 1) / size, (likes.size + size - 1) / size)
         for (part in 0 until parts) {

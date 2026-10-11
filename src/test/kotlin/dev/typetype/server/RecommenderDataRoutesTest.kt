@@ -2,7 +2,9 @@ package dev.typetype.server
 
 import dev.typetype.server.db.tables.UsersTable
 import dev.typetype.server.models.AdminSettingsItem
+import dev.typetype.server.services.FavoritesService
 import dev.typetype.server.services.HistoryService
+import dev.typetype.server.services.RecommenderHistoryFingerprint
 import dev.typetype.server.services.SubscriptionsService
 import io.ktor.client.request.get
 import io.ktor.client.statement.bodyAsText
@@ -20,6 +22,29 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 class RecommenderDataRoutesTest : RecommenderRoutesFixture() {
+    @Test
+    fun subscriptions_algorithm_does_not_upload_watch_history_or_favorites() = withApp {
+        adminSettings.upsert(AdminSettingsItem(recommenderEnabled = true))
+        HistoryService().addImported(TEST_USER_ID, watch("private", 2_000))
+        FavoritesService().add(TEST_USER_ID, "https://www.youtube.com/watch?v=private-favorite")
+        save("""{"enabled":true,"algorithmId":"subscriptions"}""")
+
+        call("/recommendations/home?service=0")
+
+        assertEquals(0, recommender.calls("/v1/history"))
+        assertTrue(!recommender.lastBody("/v1/plan").contains("history_key"))
+        assertTrue(!recommender.lastBody("/v1/plan").contains("private"))
+    }
+
+    @Test
+    fun history_fingerprint_ignores_history_when_only_favorites_are_included() = withApp {
+        FavoritesService().add(TEST_USER_ID, "https://www.youtube.com/watch?v=kept-favorite")
+        val before = RecommenderHistoryFingerprint.of(TEST_USER_ID, includeHistory = false, includeFavorites = true)
+        HistoryService().addImported(TEST_USER_ID, watch("fingerprint1", 2_000))
+        val after = RecommenderHistoryFingerprint.of(TEST_USER_ID, includeHistory = false, includeFavorites = true)
+        assertEquals(before, after)
+    }
+
     @Test
     fun `the person chooses what the algorithm may read of their data`() = withApp {
         adminSettings.upsert(AdminSettingsItem(recommenderEnabled = true))

@@ -34,6 +34,12 @@ class RecommenderAlgorithmCatalog(
 
     suspend fun offeredIds(locale: String): List<String> = list(locale)?.algorithms()?.mapNotNull { it.id() }.orEmpty()
 
+    suspend fun dataUsedBy(locale: String, algorithmId: String): Set<String>? {
+        val algorithm = list(locale)?.algorithms()?.firstOrNull { it.id() == algorithmId } ?: return null
+        val uses = algorithm["uses"] as? JsonArray ?: return emptySet()
+        return uses.mapNotNull { (it as? JsonPrimitive)?.contentOrNull }.toSet()
+    }
+
     suspend fun defaultId(locale: String): String? =
         list(locale)?.get("default_algorithm")?.jsonPrimitive?.contentOrNull
 
