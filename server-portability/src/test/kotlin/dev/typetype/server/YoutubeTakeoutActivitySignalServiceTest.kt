@@ -57,6 +57,28 @@ class YoutubeTakeoutActivitySignalServiceTest {
         Files.deleteIfExists(zip)
     }
 
+    @Test
+    fun `a dislike is never taken for a like, whatever the language`() {
+        val zip = createZip(
+            """
+            Te ha gustado <a href="https://www.youtube.com/watch?v=liked000001">Un vídeo</a><br>
+            16 sept 2026, 18:02:08 CEST<br>
+            No te ha gustado <a href="https://www.youtube.com/watch?v=dislike0001">Otro vídeo</a><br>
+            16 sept 2026, 18:03:08 CEST<br>
+            You disliked <a href="https://www.youtube.com/watch?v=dislike0002">A video</a><br>
+            16 Sep 2026, 18:04:08 CEST<br>
+            You liked <a href="https://www.youtube.com/watch?v=liked000002">Another video</a><br>
+            16 Sep 2026, 18:05:08 CEST<br>
+            """.trimIndent(),
+        )
+
+        assertEquals(
+            listOf("liked000001", "liked000002"),
+            YoutubeTakeoutActivitySignalService.parse(zip).second.map { it.videoUrl.takeLast(11) },
+        )
+        Files.deleteIfExists(zip)
+    }
+
     private fun createZip(
         html: String = """
             Vous vous êtes abonné à <a href="https://www.youtube.com/channel/UC999">Channel Name</a><br>
