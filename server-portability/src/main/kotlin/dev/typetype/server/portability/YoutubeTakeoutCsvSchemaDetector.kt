@@ -75,8 +75,11 @@ object YoutubeTakeoutCsvSchemaDetector {
         private val hasChannelId by lazy {
             header.any(YoutubeTakeoutSchemaHints::isChannelIdHeader) || rows.hasValue(YoutubeTakeoutSchemaHints::looksLikeChannelId)
         }
+        // A URL header only counts when its values are channel URLs: a channel's own export names its
+        // custom URL ("Nom de l'URL personnalisée 1 de la chaîne") and holds a handle, not a link.
         private val hasChannelUrl by lazy {
-            header.any(YoutubeTakeoutSchemaHints::isChannelUrlHeader) || rows.hasValue(YoutubeTakeoutSchemaHints::containsChannelUrl)
+            rows.hasValue(YoutubeTakeoutSchemaHints::containsChannelUrl) ||
+                rows.isEmpty() && header.any(YoutubeTakeoutSchemaHints::isChannelUrlHeader)
         }
         private val hasVideoId by lazy {
             header.any(YoutubeTakeoutSchemaHints::isVideoIdHeader) || rows.hasValue(::isLikelyVideoId)

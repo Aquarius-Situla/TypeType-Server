@@ -144,6 +144,12 @@ object YoutubeTakeoutActivityClassifier {
 
     fun isLikedAction(value: String): Boolean = startsWithAny(value, normalizedLikedPhrases)
 
+    /** A like said after the title, in languages that put the verb last ("を高く評価しました"). */
+    fun isLikedSuffix(value: String): Boolean {
+        val normalized = YoutubeTakeoutTextNormalizer.normalize(value)
+        return normalizedLikedPhrases.any { normalized == it || normalized.startsWith(it) || normalized.endsWith(it) }
+    }
+
     fun isSubscribed(value: String): Boolean = containsAny(value, normalizedSubscribedPhrases)
 
     fun isSubscribedAction(value: String): Boolean = startsWithAny(value, normalizedSubscribedPhrases)

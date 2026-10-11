@@ -49,13 +49,16 @@ class YoutubeTakeoutPortabilityAdapter : PortabilityAdapter {
         }
         ZipFile(input.path.toFile()).use { zip ->
             val entries = zip.entries().asSequence().filterNot { it.isDirectory }.toList()
-            YoutubeTakeoutCsvPortabilityReader.read(zip, entries, sink)
-            YoutubeTakeoutHtmlPortabilityReader.read(zip, entries, sink)
+            val csv = YoutubeTakeoutCsvSchemaDetector.classify(zip, entries)
+            // Activity is read before the CSV lists so their subscriptions get the activity's dates.
+            val subscriptionsListed = csv.any { it.kind == YoutubeTakeoutCsvKind.SUBSCRIPTIONS }
+            YoutubeTakeoutHtmlPortabilityReader.read(zip, entries, sink, subscriptionsListed)
             entries.filter { YoutubeTakeoutJsonPortabilityReader.isCandidate(it.name) }.forEach { entry ->
                 zip.getInputStream(entry).use { inputStream ->
-                    YoutubeTakeoutJsonPortabilityReader.read(inputStream, sink)
+                    YoutubeTakeoutJsonPortabilityReader.read(inputStream, sink, subscriptionsListed)
                 }
             }
+            YoutubeTakeoutCsvPortabilityReader.read(zip, entries, sink, csv)
         }
     }
 

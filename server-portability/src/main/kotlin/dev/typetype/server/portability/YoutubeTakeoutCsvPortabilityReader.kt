@@ -13,8 +13,12 @@ import java.util.zip.ZipFile
 object YoutubeTakeoutCsvPortabilityReader {
     private const val PLAYLIST_LOOKUP = "youtube-takeout-playlist"
 
-    fun read(zip: ZipFile, entries: List<ZipEntry>, sink: PortabilityRecordSink) {
-        val classified = YoutubeTakeoutCsvSchemaDetector.classify(zip, entries)
+    fun read(
+        zip: ZipFile,
+        entries: List<ZipEntry>,
+        sink: PortabilityRecordSink,
+        classified: List<YoutubeTakeoutCsvClassification> = YoutubeTakeoutCsvSchemaDetector.classify(zip, entries),
+    ) {
         classified.filter { it.kind == YoutubeTakeoutCsvKind.PLAYLIST_MANIFEST }.forEach { classifiedEntry ->
             sink.markCategory(PortabilityCategory.PLAYLISTS)
             forEachRow(zip, classifiedEntry.entry) { header, row ->
@@ -50,7 +54,11 @@ object YoutubeTakeoutCsvPortabilityReader {
         forEachRow(zip, entry) { header, row ->
             val item = YoutubeTakeoutRowParser.parseSubscription(header, row)
             if (item == null) sink.invalid(PortabilityCategory.SUBSCRIPTIONS, "subscription")
-            else sink.write(item.toPortability())
+            else sink.write(
+                item.toPortability().let {
+                    it.copy(subscribedAt = it.subscribedAt.takeIf { at -> at > 0L } ?: YoutubeTakeoutSubscriptionDates.of(sink, it.channelUrl))
+                },
+            )
         }
     }
 

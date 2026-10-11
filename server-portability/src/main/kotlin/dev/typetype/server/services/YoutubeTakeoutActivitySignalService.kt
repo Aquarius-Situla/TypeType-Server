@@ -41,11 +41,18 @@ object YoutubeTakeoutActivitySignalService {
             val text = decode(match.groupValues[2])
             channelUrlRegex.find(href)?.value?.let { channelUrl ->
                 if (YoutubeTakeoutActivityClassifier.isSubscribed(prefix)) {
-                    subscriptions += SubscriptionItem(channelUrl.replace("http://", "https://"), text, "")
+                    val tailStart = match.range.last + 1
+                    val subscribedAt = rowTailRegex.find(resolvedHtml, tailStart)
+                        ?.takeIf { it.range.first == tailStart }
+                        ?.let { YoutubeTakeoutDateParser.parseEpochMillis(decode(it.groupValues[3])) }
+                        ?: 0L
+                    subscriptions += SubscriptionItem(channelUrl.replace("http://", "https://"), text, "", subscribedAt)
                 }
             }
             val videoUrl = watchUrlRegex.find(href)?.value?.replace("http://", "https://") ?: return@forEach
-            if (!YoutubeTakeoutActivityClassifier.isLiked(prefix) || YoutubeTakeoutUnavailableItem.matches(text)) return@forEach
+            if (!isLikedRow(prefix, resolvedHtml, match.range.last + 1) || YoutubeTakeoutUnavailableItem.matches(text)) {
+                return@forEach
+            }
             val tailStart = match.range.last + 1
             val tail = rowTailRegex.find(resolvedHtml, tailStart)?.takeIf { it.range.first == tailStart } ?: return@forEach
             val favoritedAt = YoutubeTakeoutDateParser.parseEpochMillis(decode(tail.groupValues[3]))
@@ -59,6 +66,20 @@ object YoutubeTakeoutActivitySignalService {
             )
         }
         return subscriptions to favorites
+    }
+
+    /**
+     * A like is said by the words right before the video's link ("Liked", "Te ha gustado"), or
+     * right after it in languages that put the verb last. Looking for those words anywhere
+     * around the link took a dislike for a like: "No te ha gustado" holds "te ha gustado",
+     * "You disliked" holds "liked".
+     */
+    private fun isLikedRow(prefix: String, html: String, afterLink: Int): Boolean {
+        val verb = decode(prefix.substringAfterLast('>'))
+        if (verb.isNotBlank()) return YoutubeTakeoutActivityClassifier.isLikedAction(verb)
+        val after = decode(html.substring(afterLink, minOf(html.length, afterLink + PREFIX_CHARS)).substringBefore("<br>"))
+        return YoutubeTakeoutActivityClassifier.isLikedAction(after) ||
+            YoutubeTakeoutActivityClassifier.isLikedSuffix(after)
     }
 
     private fun decode(value: String): String {
