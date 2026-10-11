@@ -24,4 +24,10 @@ data class AdminSettingsItem(
     val rssMaxItems: Int = 50,
     val rssMinimumPollMinutes: Int = 5,
     val rssRateLimitPerMinute: Int = 30,
+    val recommenderEnabled: Boolean = false,
+    val recommenderDefaultOn: Boolean = false,
+    val recommenderDefaultAlgorithm: String? = null,
+    val recommenderAllowedAlgorithms: List<String> = emptyList(),
+    val recommenderTimeoutMs: Int = 0,
+    val recommenderStreamRequestsPerMinute: Int = 0,
 )
