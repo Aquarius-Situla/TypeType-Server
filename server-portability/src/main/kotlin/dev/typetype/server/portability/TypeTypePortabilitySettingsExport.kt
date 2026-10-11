@@ -1,5 +1,7 @@
 package dev.typetype.server.portability
 
+import dev.typetype.server.models.RecommenderBackup
+import dev.typetype.server.services.RecommenderUserDataRepository
 import dev.typetype.server.cache.CacheJson
 import dev.typetype.server.db.tables.SettingsTable
 import dev.typetype.server.models.SettingsItem
@@ -15,5 +17,8 @@ object TypeTypePortabilitySettingsExport {
             .singleOrNull()?.toSettingsItem() ?: SettingsItem()
         val json = CacheJson.parseToJsonElement(CacheJson.encodeToString(settings)).jsonObject
         sink.write(PortabilitySettings(json))
+        RecommenderUserDataRepository.export(userId)?.let { backup ->
+            sink.write(PortabilityRecommender(CacheJson.encodeToJsonElement(RecommenderBackup.serializer(), backup).jsonObject))
+        }
     }
 }

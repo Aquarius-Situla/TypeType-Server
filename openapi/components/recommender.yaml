@@ -1,0 +1,259 @@
+RecommenderCapability:
+  type: object
+  description: The optional recommender service. An instance that did not install it reports all false.
+  required: [installed, enabled, experimental]
+  properties:
+    installed:
+      type: boolean
+      description: True when the host configured RECOMMENDER_SERVICE_URL.
+    enabled:
+      type: boolean
+      description: True when installed and the administrator switched it on for the instance.
+    experimental: { type: boolean }
+RecommenderSettingsItem:
+  type: object
+  description: A person's own choice. Until `enabled` is true they keep the current home page.
+  properties:
+    enabled: { type: boolean, default: false }
+    algorithmId:
+      type: string
+      nullable: true
+      description: One of the ids of GET /recommendations/algorithms; null means the instance's preselected one.
+    parameters:
+      type: object
+      description: Values of the algorithm's own parameters, as it describes them.
+      additionalProperties: true
+    mutedGroups: { type: array, items: { type: string } }
+    ignoredSignals: { type: array, items: { type: string } }
+    pinnedGroups: { type: array, items: { type: string } }
+    sessionResetAt: { type: integer, format: int64, nullable: true }
+    customInterests:
+      type: array
+      maxItems: 10
+      items: { type: string, maxLength: 60 }
+      description: Subjects the person added themselves, in their own words; each counts as a pinned interest.
+    unusedData:
+      type: array
+      items: { type: string }
+      description: Families of data the algorithm may not read (history, shorts_history, favorites, subscriptions, blocked, not_interested).
+    excludedItems:
+      type: array
+      items: { type: string }
+      description: Single items left out, by reference (video:<video url> for every viewing of a video, history:<id> for one viewing, favorite:<video url>).
+    retentionDays:
+      type: object
+      additionalProperties: { type: integer }
+      description: For a family of data, the algorithm reads only what is newer than this many days. Nothing is deleted.
+RecommenderAlgorithms:
+  type: object
+  description: The recommender's own list (names, guide, parameters), narrowed to what the administrator offers.
+  required: [algorithms, default_algorithm]
+  properties:
+    default_algorithm: { type: string, nullable: true }
+    algorithms:
+      type: array
+      items: { type: object, additionalProperties: true }
+  additionalProperties: true
+HomeRecommendationRow:
+  type: object
+  required: [id, title, reason, videoUrls]
+  properties:
+    id: { type: string }
+    title: { type: string }
+    reason: { type: string, description: Why the row is there, as the recommender names it. }
+    reasonRef: { type: string, nullable: true }
+    videoUrls: { type: array, items: { type: string } }
+HomeRecommendationsResponse:
+  type: object
+  required: [items, hasMore]
+  properties:
+    items:
+      type: array
+      items: { $ref: ./media.yaml#/VideoItem }
+    nextCursor: { type: string, nullable: true }
+    hasMore: { type: boolean }
+    algorithm:
+      type: string
+      nullable: true
+      description: Set only when the page came from the recommender.
+    preparing:
+      type: boolean
+      nullable: true
+      description: True when the recommender is still building this person's page; the standard page is served meanwhile and the client asks again shortly.
+    rows:
+      type: array
+      nullable: true
+      description: Set only when the page came from the recommender; each row names videos of `items`.
+      items: { $ref: '#/HomeRecommendationRow' }
+RecommenderFeedbackItem:
+  type: object
+  description: >
+    An opinion the person chose to give. The client sends `kind`, `verdict` and, as fits,
+    `comment` or `videoUrl` (with, if they wish, a `reason`, and the title, channel and thumbnail
+    they saw); Server fills in the algorithm and its settings at that moment. A second opinion
+    on the same video only updates its `reason`.
+  required: [kind, verdict]
+  properties:
+    id: { type: string }
+    kind: { type: string, enum: [page, video] }
+    verdict:
+      type: string
+      enum: [good, bad, not_for_me]
+      description: good or bad for a page, not_for_me for a video.
+    comment: { type: string, nullable: true, maxLength: 1000 }
+    videoUrl: { type: string, nullable: true }
+    reason:
+      type: string
+      nullable: true
+      enum: [seen, channel, topic, other, repetitive, unrelated, old, missing]
+      description: >
+        When the person chooses to say: why a video is not for them (seen, channel, topic,
+        other) or what is wrong with a page they found bad (repetitive, unrelated, old, missing).
+    title: { type: string, nullable: true, maxLength: 300 }
+    channelName: { type: string, nullable: true, maxLength: 300 }
+    thumbnailUrl: { type: string, nullable: true, maxLength: 500 }
+    algorithmId: { type: string }
+    parameters: { type: object, additionalProperties: true }
+    createdAt: { type: integer, format: int64 }
+RecommenderBackup:
+  type: object
+  description: Travels with the `settings` category of a TypeType export. Absent when the person never used the recommender.
+  properties:
+    settings:
+      nullable: true
+      allOf: [{ $ref: '#/RecommenderSettingsItem' }]
+    feedback:
+      type: array
+      items: { $ref: '#/RecommenderFeedbackItem' }
+RecommenderAdminStatus:
+  type: object
+  required: [installed, enabled, reachable]
+  properties:
+    installed: { type: boolean }
+    enabled: { type: boolean }
+    reachable: { type: boolean }
+    healthMs: { type: integer, format: int64, nullable: true }
+    algorithms:
+      type: array
+      items:
+        type: object
+        required: [id, name]
+        properties:
+          id: { type: string }
+          name: { type: string }
+    defaultAlgorithm: { type: string, nullable: true }
+    pagesBuilt: { type: integer, format: int64 }
+    pagesFromCache: { type: integer, format: int64 }
+    fallbacks: { type: integer, format: int64, description: Times the current home page was served instead. }
+    averageBuildMs: { type: integer, format: int64 }
+    averageRecommenderMs: { type: integer, format: int64, description: Of the build time, what the recommender itself took. }
+    averageSourcesMs: { type: integer, format: int64, description: Of the build time, what fetching the sources took. }
+    buildMsTotal: { type: integer, format: int64 }
+    recommenderMsTotal: { type: integer, format: int64 }
+    sourcesMsTotal: { type: integer, format: int64 }
+    sourceRequests: { type: integer, format: int64 }
+    sourceCacheHits: { type: integer, format: int64 }
+    streamRequests: { type: integer, format: int64 }
+    streamRequestsRefused: { type: integer, format: int64 }
+    streamRequestsThisMinute:
+      type: integer
+      format: int64
+      description: Videos YouTube was made to open this minute, by anyone on the instance, the recommender included.
+    streamRequestsPaused:
+      type: boolean
+      description: YouTube refused a video lately; the recommender asks for none until the pause is over.
+    streamRequestsPerMinuteLimit: { type: integer }
+    requestTimeoutMs: { type: integer, format: int64 }
+RecommenderAdminFeedback:
+  type: object
+  required: [usersEnabled, usersByAlgorithm, verdicts, comments]
+  properties:
+    usersEnabled: { type: integer }
+    usersByAlgorithm:
+      type: object
+      description: Users by chosen algorithm; the empty key is the preselected one.
+      additionalProperties: { type: integer }
+    verdicts:
+      type: array
+      items:
+        type: object
+        required: [algorithmId]
+        properties:
+          algorithmId: { type: string }
+          good: { type: integer }
+          bad: { type: integer }
+          notForMe: { type: integer }
+    comments:
+      type: array
+      items: { $ref: '#/RecommenderFeedbackItem' }
+RecommenderDataCategory:
+  type: object
+  required: [id, count]
+  properties:
+    id: { type: string }
+    count: { type: integer }
+    oldestAt: { type: integer, format: int64, nullable: true }
+    use: { type: boolean }
+    retentionDays: { type: integer, nullable: true }
+    collect:
+      type: boolean
+      nullable: true
+      description: Whether new items are recorded (the user's disableWatchHistory setting); null when not a choice.
+    items:
+      type: array
+      items:
+        type: object
+        required: [id, title]
+        properties:
+          id: { type: string }
+          title: { type: string }
+          channel: { type: string, nullable: true }
+          at: { type: integer, format: int64 }
+          watchedPercent: { type: integer, nullable: true }
+          excluded: { type: boolean }
+          thumbnailUrl: { type: string, nullable: true }
+          viewings:
+            type: integer
+            description: How many times the video appears in the history; it is listed once.
+RecommenderPageTrace:
+  type: object
+  description: How the last home page was built, as the recommender reports it.
+  required: [algorithm, builtAt]
+  properties:
+    algorithm: { type: string }
+    builtAt: { type: integer, format: int64 }
+    sources:
+      type: array
+      items:
+        type: object
+        properties:
+          kind: { type: string }
+          detail: { type: string }
+          received: { type: integer }
+    candidatesReceived: { type: integer }
+    dropped:
+      type: object
+      additionalProperties: { type: integer }
+    shown: { type: integer }
+    rows:
+      type: array
+      items:
+        type: object
+        properties:
+          id: { type: string }
+          title: { type: string }
+          why: { type: string }
+          videos: { type: integer }
+    scores:
+      type: array
+      items:
+        type: object
+        properties:
+          url: { type: string }
+          title: { type: string }
+          channel: { type: string }
+          row: { type: string }
+          total: { type: number }
+          factors:
+            type: object
+            additionalProperties: { type: number }

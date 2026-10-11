@@ -57,6 +57,14 @@ internal fun Route.userDataRoutes(
     restoreRoutes(restoreService, authService)
     typeTypeBackupRoutes(svc.typeTypeBackupService, authService)
     portabilityRoutes(portabilityEngine, authService)
-    homeRecommendationRoutes(svc.homeRecommendationService, authService, svc.blockedService, svc.accessControlService)
+    homeRecommendationRoutes(
+        recommendationService = svc.homeRecommendationService,
+        authService = authService,
+        blockedService = svc.blockedService,
+        accessControlService = svc.accessControlService,
+        recommenderHomeService = svc.recommenderServices.homeService,
+    )
+    recommenderRoutes(svc.recommenderServices, authService)
+    recommenderFeedbackRoutes(svc.recommenderServices, authService)
     homeRecommendationShortsRoutes(svc.homeRecommendationService, authService, svc.blockedService, svc.accessControlService)
 }

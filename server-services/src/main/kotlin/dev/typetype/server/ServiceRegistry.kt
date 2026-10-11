@@ -1,5 +1,6 @@
 package dev.typetype.server
 import dev.typetype.server.cache.DragonflyService
+import dev.typetype.server.services.YoutubeRelatedVideosService
 import dev.typetype.server.services.AccessControlService
 import dev.typetype.server.services.AccountIdentityService
 import dev.typetype.server.services.AdminManagedAccessService
@@ -186,4 +187,17 @@ class ServiceRegistry(
     val homeRecommendationServices = createHomeRecommendationServices(cache, recommendationPoolResolverDependencies)
     val homeRecommendationService = homeRecommendationServices.recommendationService
     val homeRecommendationWarmupService = homeRecommendationServices.warmupService
+    val recommenderServices = RecommenderServices(
+        RecommenderDependencies(
+            cache, adminSettingsService, historyService, progressService, favoritesService, subscriptionsService,
+            subscriptionFeedService, blockedService, settingsService, searchService, channelService, streamService,
+            trendingService, extraction.streamRequestWatch, YoutubeRelatedVideosService(),
+        ),
+    )
+
+    init {
+        homeRecommendationWarmupService.homeServedElsewhere = { userId ->
+            recommenderServices.offered() && recommenderServices.settingsService.get(userId).enabled
+        }
+    }
 }

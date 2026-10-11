@@ -49,6 +49,7 @@ class TypeTypePortabilityAdapter : PortabilityAdapter {
                 "searchHistory" -> sink.read(PortabilityCategory.SEARCH_HISTORY) { TypeTypePortabilityReader.searchHistory(parser, token, sink) }
                 "savedPlaylists" -> sink.read(PortabilityCategory.SAVED_PLAYLISTS) { TypeTypePortabilityReader.savedPlaylists(parser, token, sink) }
                 "settings" -> sink.read(PortabilityCategory.SETTINGS) { TypeTypePortabilityReader.settings(parser, token, sink) }
+                "recommender" -> sink.read(PortabilityCategory.SETTINGS) { TypeTypePortabilityReader.recommender(parser, token, sink) }
                 "contentFilters" -> sink.read(PortabilityCategory.CONTENT_FILTERS) { TypeTypePortabilityReader.contentFilters(parser, token, sink) }
                 else -> parser.skipChildren()
             }

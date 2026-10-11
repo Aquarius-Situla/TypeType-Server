@@ -1,5 +1,6 @@
 package dev.typetype.server.services
 
+import dev.typetype.server.db.DatabaseFactory
 import dev.typetype.server.models.TYPE_TYPE_BACKUP_FORMAT
 import dev.typetype.server.models.TYPE_TYPE_BACKUP_VERSION
 import dev.typetype.server.models.TypeTypeBackupItem
@@ -55,6 +56,11 @@ class TypeTypeBackupService(
             savedPlaylists = if (includes(TypeTypeBackupCategory.SAVED_PLAYLISTS)) savedPlaylists.getAll(userId) else null,
             settings = if (includes(TypeTypeBackupCategory.SETTINGS)) settings.get(userId) else null,
             contentFilters = if (includes(TypeTypeBackupCategory.CONTENT_FILTERS)) contentFilters(userId) else null,
+            recommender = if (includes(TypeTypeBackupCategory.SETTINGS)) {
+                DatabaseFactory.query { RecommenderUserDataRepository.export(userId) }
+            } else {
+                null
+            },
         )
     }
 
@@ -67,7 +73,9 @@ class TypeTypeBackupService(
         validateSections(backup, categories)
         validateSubscriptionGroups(backup, categories)
         validateContentFilters(backup, categories)
-        return TypeTypeBackupRestoreWriter.restore(userId, backup, categories)
+        return TypeTypeBackupRestoreWriter.restore(userId, backup, categories).also {
+            if (TypeTypeBackupCategory.SETTINGS in categories) RecommenderUserDataInvalidation.invalidate(userId)
+        }
     }
 
     private suspend fun contentFilters(userId: String) = TypeTypeContentFiltersBackup(

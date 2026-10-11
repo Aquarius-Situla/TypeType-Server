@@ -8,4 +8,7 @@ data class HomeRecommendationsResponse(
     val nextCursor: String?,
     val hasMore: Boolean,
     val debug: HomeRecommendationsDebug? = null,
+    val algorithm: String? = null,
+    val rows: List<HomeRecommendationRow>? = null,
+    val preparing: Boolean? = null,
 )

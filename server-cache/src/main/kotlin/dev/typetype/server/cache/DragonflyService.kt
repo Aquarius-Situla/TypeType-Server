@@ -32,6 +32,14 @@ class DragonflyService(url: String) : CacheService {
             ttlSeconds.toString(),
         ).await() == 1L
 
+    override suspend fun increment(key: String, ttlSeconds: Long): Long =
+        async.eval<Long>(
+            INCREMENT_WITH_EXPIRY,
+            ScriptOutputType.INTEGER,
+            arrayOf(key),
+            ttlSeconds.toString(),
+        ).await()
+
     override suspend fun delete(key: String): Unit =
         async.del(key).await().let {}
 
@@ -45,5 +53,7 @@ class DragonflyService(url: String) : CacheService {
     private companion object {
         const val REFRESH_IF_VALUE_MATCHES =
             "if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('expire', KEYS[1], ARGV[2]) end return 0"
+        const val INCREMENT_WITH_EXPIRY =
+            "local n = redis.call('incr', KEYS[1]) if n == 1 then redis.call('expire', KEYS[1], ARGV[1]) end return n"
     }
 }

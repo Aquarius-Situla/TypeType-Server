@@ -19,6 +19,7 @@ data class TypeTypeBackupItem(
     val savedPlaylists: List<SavedPlaylistItem>? = null,
     val settings: SettingsItem? = null,
     val contentFilters: TypeTypeContentFiltersBackup? = null,
+    val recommender: RecommenderBackup? = null,
 )
 
 @Serializable

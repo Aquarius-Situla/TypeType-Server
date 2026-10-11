@@ -91,6 +91,24 @@ AdminSettingsItem:
     localLoginEnabled: { type: boolean, default: true }
     oidcAutoRedirect: { type: boolean, default: false }
     youtubeRemoteLoginEnabled: { type: boolean, default: false }
+    recommenderEnabled:
+      type: boolean
+      default: false
+      description: Offers the optional recommender to users. No effect when the service is not installed.
+    recommenderDefaultOn:
+      type: boolean
+      default: false
+      description: On, the recommender home is every user's home until they turn it off; off, each user turns it on.
+    recommenderDefaultAlgorithm: { type: string, nullable: true }
+    recommenderAllowedAlgorithms:
+      type: array
+      items: { type: string }
+      description: Algorithms offered; empty means all the recommender has.
+    recommenderTimeoutMs: { type: integer, default: 0, description: 0 uses RECOMMENDER_REQUEST_TIMEOUT_MS. }
+    recommenderStreamRequestsPerMinute:
+      type: integer
+      default: 0
+      description: Instance-wide limit of video requests to YouTube made for recommendations; 0 uses RECOMMENDER_STREAM_REQUESTS_PER_MINUTE.
     accessMode:
       type: string
       enum: [unrestricted, allow_list]

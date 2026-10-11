@@ -10,6 +10,9 @@ import dev.typetype.server.services.HomeRecommendationDeviceClass
 import dev.typetype.server.services.HomeRecommendationSessionContext
 import dev.typetype.server.services.HomeRecommendationSessionIntent
 import dev.typetype.server.services.HomeRecommendationService
+import dev.typetype.server.services.RecommenderHomeService
+import dev.typetype.server.services.RecommenderPageCursor
+import dev.typetype.server.services.startsLater
 import dev.typetype.server.services.VALID_SERVICE_IDS
 import dev.typetype.server.services.YOUTUBE_SERVICE_ID
 import dev.typetype.server.services.filterAllowed
@@ -26,6 +29,7 @@ fun Route.homeRecommendationRoutes(
     authService: AuthService,
     blockedService: BlockedService,
     accessControlService: AccessControlService? = null,
+    recommenderHomeService: RecommenderHomeService? = null,
 ) {
     get("/recommendations/home") {
         call.withJwtAuth(authService) { userId ->
@@ -40,14 +44,21 @@ fun Route.homeRecommendationRoutes(
                 deviceClass = HomeRecommendationDeviceClass.parse(call.request.headers["User-Agent"]),
             )
             val rawCursor = call.request.queryParameters["cursor"]
-            val cursor = HomeRecommendationCursorCodec.decode(rawCursor)
+            val profile = accessControlService?.profileFor(userId, authService.getUserRole(userId))
+                ?: dev.typetype.server.services.AccessControlProfile.unrestricted
+            val blocked = blockedService.profileFor(userId)
+            val fromRecommender = recommenderHomeService
+                ?.takeIf { serviceId == YOUTUBE_SERVICE_ID }
+                ?.getHome(userId, limit, rawCursor, call.recommenderLocale(), call.recommenderTimezone())
+            if (fromRecommender != null) {
+                return@withJwtAuth call.respond(fromRecommender.filterAllowed(profile).filterBlocked(blocked).withShownRows())
+            }
+            val preparing = recommenderHomeService?.isPreparing(userId)?.takeIf { it }
+            val cursor = HomeRecommendationCursorCodec.decode(rawCursor.takeUnless(RecommenderPageCursor::isRecommenderCursor))
                 ?: return@withJwtAuth call.respond(
                     HttpStatusCode.BadRequest,
                     ErrorResponse("Invalid 'cursor' parameter"),
                 )
-            val profile = accessControlService?.profileFor(userId, authService.getUserRole(userId))
-                ?: dev.typetype.server.services.AccessControlProfile.unrestricted
-            val blocked = blockedService.profileFor(userId)
             val response = recommendationService.getHome(
                     userId = userId,
                     serviceId = serviceId,
@@ -55,7 +66,8 @@ fun Route.homeRecommendationRoutes(
                     cursor = cursor,
                     context = HomeRecommendationContext(serviceId, sessionContext),
                 ).filterAllowed(profile).filterBlocked(blocked)
-            call.respond(response)
+            val now = System.currentTimeMillis()
+            call.respond(response.copy(items = response.items.filterNot { it.startsLater(now) }, preparing = preparing))
         }
     }
 }

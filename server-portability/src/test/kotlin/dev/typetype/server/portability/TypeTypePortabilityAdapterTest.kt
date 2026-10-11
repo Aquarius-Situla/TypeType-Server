@@ -67,4 +67,43 @@ class TypeTypePortabilityAdapterTest {
         restored.delete()
         source.delete()
     }
+
+    @Test
+    fun `recommender settings and opinions travel with the settings category`() {
+        val source = PortabilitySpool.create(directory)
+        source.write(PortabilitySettings(buildJsonObject { put("defaultQuality", "720p") }))
+        source.write(
+            PortabilityRecommender(
+                buildJsonObject {
+                    put("settings", buildJsonObject { put("enabled", true); put("algorithmId", "signals-mix") })
+                },
+            ),
+        )
+        val adapter = TypeTypePortabilityAdapter()
+        val output = ByteArrayOutputStream()
+        adapter.encode(source, output, source.categories())
+        val file = directory.resolve("typetype-recommender.json")
+        Files.write(file, output.toByteArray())
+        val restored = PortabilitySpool.create(directory)
+        adapter.decode(PortabilityInputFactory.create(file, "typetype-recommender.json", "application/json"), restored)
+
+        assertEquals(source.counts(), restored.counts())
+        var algorithm: String? = null
+        restored.forEach(PortabilityCategory.SETTINGS) { record ->
+            if (record is PortabilityRecommender) algorithm = record.values.toString()
+        }
+        assertTrue(algorithm.orEmpty().contains("signals-mix"))
+        restored.delete()
+        source.delete()
+    }
+
+    @Test
+    fun `a backup without the recommender is written as before`() {
+        val source = PortabilitySpool.create(directory)
+        source.write(PortabilitySettings(buildJsonObject { put("defaultQuality", "720p") }))
+        val output = ByteArrayOutputStream()
+        TypeTypePortabilityAdapter().encode(source, output, source.categories())
+        assertTrue(!output.toString().contains("recommender"))
+        source.delete()
+    }
 }

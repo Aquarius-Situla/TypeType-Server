@@ -22,6 +22,7 @@ object SecretConfigReader {
         "SET_ME_SHARED_SECRET",
         "SET_ME_YOUTUBE_REMOTE_LOGIN_INTERNAL_TOKEN",
         "SET_ME_YOUTUBE_SESSION_ENCRYPTION_KEY",
+        "SET_ME_RECOMMENDER_INTERNAL_TOKEN",
         "replace-with-shared-internal-token",
         "replace-with-at-least-32-random-characters",
     )

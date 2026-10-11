@@ -27,6 +27,7 @@ data class InstanceResponse(
     val parentalControlsEnabled: Boolean = false,
     val rss: RssInstanceCapability = RssInstanceCapability(),
     val pushNotifications: PushNotificationCapability = PushNotificationCapability(),
+    val recommender: RecommenderCapability = RecommenderCapability(),
 )
 
 @Serializable

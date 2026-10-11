@@ -1,5 +1,6 @@
 package dev.typetype.server.portability
 
+import dev.typetype.server.services.RecommenderUserDataInvalidation
 import dev.typetype.server.db.DatabaseFactory
 import dev.typetype.server.services.SubscriptionFeedCacheInvalidation
 
@@ -23,6 +24,9 @@ class TypeTypePortabilityDataPort : PortabilityDataPort {
         }
         if (PortabilityCategory.SUBSCRIPTIONS in request.categories) {
             SubscriptionFeedCacheInvalidation.invalidate(userId)
+        }
+        if (PortabilityCategory.SETTINGS in request.categories) {
+            RecommenderUserDataInvalidation.invalidate(userId)
         }
         DatabaseFactory.query { PortabilityMediaAvatarPropagation.propagate(userId) }
         return result

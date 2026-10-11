@@ -1,0 +1,26 @@
+AdminRecommenderStatus:
+  get:
+    tags: [user-data]
+    summary: State of the optional recommender
+    parameters:
+      - { name: locale, in: query, schema: { type: string } }
+    responses:
+      '200':
+        description: Whether the service is installed and reachable, and counters since Server started
+        content:
+          application/json:
+            schema: { $ref: ../components/recommender.yaml#/RecommenderAdminStatus }
+      '401': { description: Missing or invalid token }
+      '403': { description: Admin role required }
+AdminRecommenderFeedback:
+  get:
+    tags: [user-data]
+    summary: What users chose and said about the recommender
+    responses:
+      '200':
+        description: Counts per algorithm and the comments given, without their authors
+        content:
+          application/json:
+            schema: { $ref: ../components/recommender.yaml#/RecommenderAdminFeedback }
+      '401': { description: Missing or invalid token }
+      '403': { description: Admin role required }

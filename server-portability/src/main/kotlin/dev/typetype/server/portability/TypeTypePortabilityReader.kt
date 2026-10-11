@@ -1,5 +1,6 @@
 package dev.typetype.server.portability
 
+import dev.typetype.server.models.RecommenderBackup
 import com.fasterxml.jackson.core.JsonParser
 import com.fasterxml.jackson.core.JsonToken
 import dev.typetype.server.cache.CacheJson
@@ -113,6 +114,11 @@ internal object TypeTypePortabilityReader {
         sink.write(PortabilitySettings(CacheJson.parseToJsonElement(CacheJson.encodeToString(SettingsItem.serializer(), item)).jsonObject))
     }
 
+    fun recommender(parser: JsonParser, token: JsonToken, sink: PortabilityRecordSink) {
+        if (token == JsonToken.VALUE_NULL) return
+        val backup = parser.decodeCurrent<RecommenderBackup>()
+        sink.write(PortabilityRecommender(CacheJson.encodeToJsonElement(RecommenderBackup.serializer(), backup).jsonObject))
+    }
     fun contentFilters(parser: JsonParser, token: JsonToken, sink: PortabilityRecordSink) {
         if (token == JsonToken.VALUE_NULL) return
         val filters = parser.decodeCurrent<TypeTypeContentFiltersBackup>()

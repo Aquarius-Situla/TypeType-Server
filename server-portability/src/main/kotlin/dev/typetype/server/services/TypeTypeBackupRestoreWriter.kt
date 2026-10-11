@@ -72,6 +72,9 @@ object TypeTypeBackupRestoreWriter {
                 userId,
                 requireNotNull(backup.settings),
             )
+            backup.recommender?.let {
+                restored["recommender"] = RecommenderUserDataRepository.restore(userId, it, System.currentTimeMillis())
+            }
         }
         if (TypeTypeBackupCategory.CONTENT_FILTERS in categories) {
             restored.putAll(

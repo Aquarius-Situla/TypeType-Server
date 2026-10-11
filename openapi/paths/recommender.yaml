@@ -1,0 +1,150 @@
+HomeRecommendations:
+  get:
+    tags: [user-data]
+    summary: Home page
+    description: >
+      The current home page, or the recommender's when the service is installed, switched on
+      by the administrator and turned on by the person. If the recommender does not answer in
+      time the current home page is served: never an error.
+    parameters:
+      - { name: service, in: query, schema: { type: integer, default: 0 } }
+      - { name: limit, in: query, schema: { type: integer } }
+      - { name: cursor, in: query, schema: { type: string } }
+      - { name: locale, in: query, schema: { type: string }, description: Language of row titles; Accept-Language otherwise. }
+      - { name: timezone, in: query, schema: { type: string, default: UTC } }
+    responses:
+      '200':
+        description: A page of videos
+        content:
+          application/json:
+            schema: { $ref: ../components/recommender.yaml#/HomeRecommendationsResponse }
+      '400': { description: Invalid parameter }
+      '401': { description: Missing or invalid token }
+RecommenderAlgorithms:
+  get:
+    tags: [user-data]
+    summary: Algorithms the instance offers
+    parameters:
+      - { name: locale, in: query, schema: { type: string } }
+    responses:
+      '200':
+        description: Algorithms, as the recommender describes them
+        content:
+          application/json:
+            schema: { $ref: ../components/recommender.yaml#/RecommenderAlgorithms }
+      '401': { description: Missing or invalid token }
+      '404': { description: Recommender not installed or switched off }
+      '502': { description: Recommender unreachable }
+RecommenderSettings:
+  get:
+    tags: [user-data]
+    summary: The person's recommender settings
+    responses:
+      '200':
+        description: Settings
+        content:
+          application/json:
+            schema: { $ref: ../components/recommender.yaml#/RecommenderSettingsItem }
+      '401': { description: Missing or invalid token }
+      '404': { description: Recommender not installed or switched off }
+  put:
+    tags: [user-data]
+    summary: Replace the person's recommender settings
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: { $ref: ../components/recommender.yaml#/RecommenderSettingsItem }
+    responses:
+      '200':
+        description: Saved settings
+        content:
+          application/json:
+            schema: { $ref: ../components/recommender.yaml#/RecommenderSettingsItem }
+      '400': { description: Invalid body or unknown algorithm }
+      '401': { description: Missing or invalid token }
+      '404': { description: Recommender not installed or switched off }
+RecommenderProfile:
+  get:
+    tags: [user-data]
+    summary: What the chosen algorithm concluded about the person
+    parameters:
+      - { name: locale, in: query, schema: { type: string } }
+      - { name: timezone, in: query, schema: { type: string, default: UTC } }
+    responses:
+      '200':
+        description: The recommender's own profile answer
+        content:
+          application/json:
+            schema: { type: object, additionalProperties: true }
+      '401': { description: Missing or invalid token }
+      '404': { description: Recommender not installed or switched off }
+      '403': { description: Recommendations are not enabled for this profile }
+      '502': { description: Recommender unreachable }
+RecommenderFeedback:
+  get:
+    tags: [user-data]
+    summary: The opinions the person gave
+    responses:
+      '200':
+        description: Opinions, newest first
+        content:
+          application/json:
+            schema:
+              type: array
+              items: { $ref: ../components/recommender.yaml#/RecommenderFeedbackItem }
+      '401': { description: Missing or invalid token }
+      '404': { description: Recommender not installed or switched off }
+  post:
+    tags: [user-data]
+    summary: Give an opinion on a page or say a video is not for you
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: { $ref: ../components/recommender.yaml#/RecommenderFeedbackItem }
+    responses:
+      '201':
+        description: Saved opinion
+        content:
+          application/json:
+            schema: { $ref: ../components/recommender.yaml#/RecommenderFeedbackItem }
+      '400': { description: Invalid body, kind or verdict }
+      '401': { description: Missing or invalid token }
+      '404': { description: Recommender not installed or switched off }
+RecommenderFeedbackEntry:
+  delete:
+    tags: [user-data]
+    summary: Take an opinion back
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string } }
+    responses:
+      '204': { description: Deleted }
+      '401': { description: Missing or invalid token }
+      '404': { description: Not found, or recommender not available }
+RecommenderData:
+  get:
+    tags: [user-data]
+    summary: The person's data by family, and what the algorithm may read of it
+    responses:
+      '200':
+        description: Families of data Server keeps for this person
+        content:
+          application/json:
+            schema:
+              type: array
+              items: { $ref: ../components/recommender.yaml#/RecommenderDataCategory }
+      '401': { description: Missing or invalid token }
+      '404': { description: Recommender not installed or switched off }
+RecommenderLastHome:
+  get:
+    tags: [user-data]
+    summary: How the person's last home page was built
+    responses:
+      '200':
+        description: The recommender's account of the page
+        content:
+          application/json:
+            schema: { $ref: ../components/recommender.yaml#/RecommenderPageTrace }
+      '401': { description: Missing or invalid token }
+      '404': { description: No page built yet, or recommender not available }

@@ -70,6 +70,9 @@ TypeTypeBackupItem:
       allOf:
         - { $ref: ./access-control.yaml#/SettingsItem }
       nullable: true
+    recommender:
+      nullable: true
+      allOf: [{ $ref: ./recommender.yaml#/RecommenderBackup }]
     contentFilters:
       allOf:
         - { $ref: '#/TypeTypeContentFiltersBackup' }
