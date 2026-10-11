@@ -20,6 +20,7 @@ import io.ktor.server.response.respond
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.get
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.withContext
 
 
 fun Route.streamRoutes(
@@ -36,6 +37,7 @@ fun Route.streamRoutes(
     youtubeLiveHlsStreamService: StreamService = streamService,
     youtubeSessionSabrStreamInfo: (suspend (String, String) -> ExtractionResult<StreamResponse>?)? = null,
     bilibiliSessionStreamInfo: (suspend (String, String) -> ExtractionResult<StreamResponse>?)? = null,
+    previewsEnabled: Boolean = StreamPreview.enabledByDefault,
     sabrStreamContractFilter: (suspend (String, StreamResponse) -> StreamResponse)? = null,
 ) {
     val dependencies = StreamRouteDependencies(
@@ -49,16 +51,17 @@ fun Route.streamRoutes(
         youtubeSessionSabrStreamInfo = youtubeSessionSabrStreamInfo,
         bilibiliSessionStreamInfo = bilibiliSessionStreamInfo,
     )
-    streamRoute("/streams/youtube/sabr", StreamDeliveryMode.YoutubeSabr, streamService, dependencies)
-    streamRoute("/streams/youtube/live", StreamDeliveryMode.YoutubeLiveHls, youtubeLiveHlsStreamService, dependencies)
+    streamRoute("/streams/youtube/sabr", StreamDeliveryMode.YoutubeSabr, streamService, dependencies, previewsEnabled)
+    streamRoute("/streams/youtube/live", StreamDeliveryMode.YoutubeLiveHls, youtubeLiveHlsStreamService, dependencies, previewsEnabled)
     streamRoute(
         "/streams/youtube/sabr/bootstrap",
         StreamDeliveryMode.YoutubeSabr,
         sabrBootstrapStreamService,
         dependencies,
+        previewsEnabled,
     )
-    streamRoute("/streams/niconico", StreamDeliveryMode.NicoNico, nicoNicoStreamService, dependencies)
-    streamRoute("/streams/bilibili", StreamDeliveryMode.BiliBili, bilibiliStreamService, dependencies)
+    streamRoute("/streams/niconico", StreamDeliveryMode.NicoNico, nicoNicoStreamService, dependencies, previewsEnabled)
+    streamRoute("/streams/bilibili", StreamDeliveryMode.BiliBili, bilibiliStreamService, dependencies, previewsEnabled)
 }
 
 private fun Route.streamRoute(
@@ -66,6 +69,7 @@ private fun Route.streamRoute(
     deliveryMode: StreamDeliveryMode,
     streamService: StreamService,
     dependencies: StreamRouteDependencies,
+    previewsEnabled: Boolean,
 ) {
     get(path) {
         val url = call.request.queryParameters["url"]
@@ -98,7 +102,10 @@ private fun Route.streamRoute(
             )
         }
         val providerStartedAt = System.nanoTime()
-        val publicResult = streamService.getStreamInfo(url)
+        val preview = StreamPreview(call.request.queryParameters["intent"], previewsEnabled)
+        preview.switchedOff()?.let { return@get call.respond(HttpStatusCode.Conflict, it) }
+        val publicResult = withContext(preview.context) { streamService.getStreamInfo(url) }
+        preview.notNow(publicResult)?.let { return@get call.respond(HttpStatusCode.Conflict, it) }
         val providerResult = when (publicResult) {
             is ExtractionResult.Success -> "success"
             is ExtractionResult.Failure -> "failure"
@@ -109,7 +116,7 @@ private fun Route.streamRoute(
             "durationMs=${(System.nanoTime() - providerStartedAt) / 1_000_000} result=$providerResult",
         )
         val resolutionStartedAt = System.nanoTime()
-        val resolution = resolveStreamInfo(url, deliveryMode, access.userId, publicResult, dependencies)
+        val resolution = withContext(preview.context) { resolveStreamInfo(url, deliveryMode, access.userId, publicResult, dependencies) }
         val resolutionResult = when (resolution.result) {
             is ExtractionResult.Success -> "success"
             is ExtractionResult.Failure -> "failure"

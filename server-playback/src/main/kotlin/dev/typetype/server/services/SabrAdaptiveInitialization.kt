@@ -9,6 +9,14 @@ import dev.typetype.server.sabr.YoutubeSabrFormat
 object SabrAdaptiveInitialization {
     private val localization = Localization("en", "US")
 
+    /**
+     * SABR_INITIALIZATION_RANGE=off: the direct range request is not tried and playback starts
+     * from the SABR bootstrap, as it does anyway when the range is refused. For an instance
+     * whose address the provider refuses that request to (403 on every play), it only spares
+     * two refused requests a play.
+     */
+    private val rangeEnabled: Boolean = System.getenv("SABR_INITIALIZATION_RANGE")?.lowercase() != "off"
+
     suspend fun fetch(
         holder: SabrSessionHolder,
         format: YoutubeSabrFormat,
@@ -28,7 +36,9 @@ object SabrAdaptiveInitialization {
         holder: SabrSessionHolder,
         format: YoutubeSabrFormat,
         timeoutMs: Long,
+        enabled: Boolean = rangeEnabled,
     ): ByteArray? {
+        if (!enabled) return null
         val poToken = holder.session.streamState.poToken?.takeIf { it.isNotEmpty() }
             ?: holder.playerContextToken?.streamingPoTokenBytesFor(holder.info)
             ?: return null

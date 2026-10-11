@@ -2,21 +2,29 @@ package dev.typetype.server.services
 
 import dev.typetype.server.cache.CacheJson
 import dev.typetype.server.cache.CacheService
+import dev.typetype.server.models.ExtractionFailureKind
 import dev.typetype.server.models.ExtractionResult
 import dev.typetype.server.models.StreamResponse
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.withContext
 import java.util.concurrent.ConcurrentHashMap
+import kotlin.coroutines.coroutineContext
 
 class CachedStreamService(
     private val delegate: StreamService,
     private val cache: CacheService,
     private val cachePrefix: String = DEFAULT_CACHE_PREFIX,
+    private val watch: StreamRequestWatch? = null,
+    private val pace: StreamOpenPace? = null,
+    private val renewal: ProviderSessionRenewal? = null,
 ) : StreamService {
 
     private val inFlight = ConcurrentHashMap<String, CompletableDeferred<ExtractionResult<StreamResponse>>>()
 
     companion object {
         private const val DEFAULT_CACHE_PREFIX = "stream:v6"
+
+        const val PACED_CODE = "provider_paced"
 
         fun cacheKey(url: String): String = "$DEFAULT_CACHE_PREFIX:$url"
     }
@@ -41,7 +49,21 @@ class CachedStreamService(
 
     private suspend fun getCachedOrLoad(url: String, key: String): ExtractionResult<StreamResponse> {
         cachedStream(key)?.let { return it }
+        val nobodyWaits = coroutineContext[StreamRequestWatch.NobodyWaiting] != null
+        val counted = coroutineContext[StreamRequestWatch.AlreadyCounted] != null
+        if (nobodyWaits && !backgroundAdmitted(counted)) {
+            return ExtractionResult.Failure("The provider is not asked for this video now", PACED_CODE)
+        }
+        if (pace != null && isYoutubeUrl(url) && !pace.turn(someoneWaits = !nobodyWaits)) {
+            return ExtractionResult.Failure("Too many videos are being opened at the provider right now", PACED_CODE)
+        }
         val result = delegate.getStreamInfo(url)
+        if (nobodyWaits && !counted) {
+            withContext(StreamRequestWatch.AlreadyCounted.mark) { watch?.opened(result) }
+        } else {
+            watch?.opened(result)
+        }
+        if ((result as? ExtractionResult.Failure)?.kind == ExtractionFailureKind.ProviderAccessBlocked) renewal?.refused(url)
         if (result is ExtractionResult.Success) {
             val ttl = result.data.streamCacheTtlSeconds()
             if (ttl > 0) {
@@ -51,6 +73,11 @@ class CachedStreamService(
             }
         }
         return result
+    }
+
+    private suspend fun backgroundAdmitted(counted: Boolean): Boolean {
+        val watch = watch ?: return true
+        return if (counted) !watch.paused() else watch.admit()
     }
 
     private suspend fun cachedStream(key: String): ExtractionResult<StreamResponse>? = runCatching { cache.get(key) }

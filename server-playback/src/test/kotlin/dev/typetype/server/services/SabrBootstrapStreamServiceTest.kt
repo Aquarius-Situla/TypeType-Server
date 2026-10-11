@@ -33,6 +33,15 @@ class SabrAdaptiveInitializationTest {
     }
 
     @Test
+    fun `asks the provider nothing when the range request is switched off`() = runBlocking {
+        val fixture = fixture(byteArrayOf(1, 2, 3))
+
+        assertNull(SabrAdaptiveInitialization.fetchRange(fixture.holder, fixture.format, 2_000L, enabled = false))
+
+        verify(exactly = 0) { fixture.session.fetchInitializationData(any(), any<Localization>(), any(), any()) }
+    }
+
+    @Test
     fun `returns null when the adaptive range request fails`() = runBlocking {
         val fixture = fixture(byteArrayOf(1))
         every {

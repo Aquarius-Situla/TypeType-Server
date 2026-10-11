@@ -50,7 +50,7 @@ class SubscriptionFeedService(
             scheduleRefresh(userId, requestId)
             return SubscriptionFeedPageResult.Preparing(PREPARING_RETRY_AFTER_MS)
         }
-        if (current.stale || clock() - current.generatedAt >= FRESHNESS_MS) {
+        if (current.stale || clock() - current.generatedAt >= SubscriptionFeedSettings.freshnessMs) {
             scheduleRefresh(userId, requestId)
         }
         val cursorState = cursor?.let(SubscriptionFeedCursorCodec::decode)
@@ -107,7 +107,7 @@ class SubscriptionFeedService(
 
     suspend fun getAllWithAvailability(userId: String): SubscriptionFeedAvailability {
         val snapshot = store.current(userId)
-        if (snapshot == null || snapshot.stale || clock() - snapshot.generatedAt >= FRESHNESS_MS) {
+        if (snapshot == null || snapshot.stale || clock() - snapshot.generatedAt >= SubscriptionFeedSettings.freshnessMs) {
             scheduleRefresh(userId, currentRequestId())
         }
         if (snapshot != null) {
@@ -221,7 +221,6 @@ class SubscriptionFeedService(
     private fun userKey(userId: String): String = SubscriptionFeedCacheKeys.feed(userId).substringAfter(':')
 
     companion object {
-        private const val FRESHNESS_MS = 60_000L
         private const val PREPARING_RETRY_AFTER_MS = 500L
         private const val INTERNAL_COLD_WAIT_MS = 400L
         private val logger = LoggerFactory.getLogger(SubscriptionFeedService::class.java)

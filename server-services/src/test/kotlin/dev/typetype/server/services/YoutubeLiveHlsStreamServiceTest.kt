@@ -12,6 +12,46 @@ import org.junit.jupiter.api.Test
 
 class YoutubeLiveHlsStreamServiceTest {
     @Test
+    fun `asked after, the live client is left alone for a video that is not live`() = runTest {
+        val metadataService = mockk<StreamService>()
+        val liveHlsService = mockk<StreamService>()
+        val expected = ExtractionResult.Success(streamResponse(isLive = false, manifestUrl = ""))
+        coEvery { metadataService.getStreamInfo(YOUTUBE_URL) } returns expected
+        val service = YoutubeLiveHlsStreamService(metadataService, liveHlsService, probeFirst = false)
+
+        assertSame(expected, service.getStreamInfo(YOUTUBE_URL))
+        coVerify(exactly = 0) { liveHlsService.getStreamInfo(any()) }
+    }
+
+    @Test
+    fun `asked after, a live stream still gets the live client's manifest`() = runTest {
+        val metadataService = mockk<StreamService>()
+        val liveHlsService = mockk<StreamService>()
+        val expected = ExtractionResult.Success(streamResponse(isLive = true, manifestUrl = HLS_URL))
+        coEvery { metadataService.getStreamInfo(YOUTUBE_URL) } returns
+            ExtractionResult.Success(streamResponse(isLive = true, manifestUrl = ""))
+        coEvery { liveHlsService.getStreamInfo(YOUTUBE_URL) } returns expected
+        val service = YoutubeLiveHlsStreamService(metadataService, liveHlsService, probeFirst = false)
+
+        assertSame(expected, service.getStreamInfo(YOUTUBE_URL))
+    }
+
+    @Test
+    fun `asked after, a video the usual client cannot open is still tried as a live`() = runTest {
+        val metadataService = mockk<StreamService>()
+        val liveHlsService = mockk<StreamService>()
+        val failure = ExtractionResult.Failure("usual client failed")
+        val live = ExtractionResult.Success(streamResponse(isLive = true, manifestUrl = HLS_URL))
+        coEvery { metadataService.getStreamInfo(YOUTUBE_URL) } returns failure
+        coEvery { liveHlsService.getStreamInfo(YOUTUBE_URL) } returns live
+        val service = YoutubeLiveHlsStreamService(metadataService, liveHlsService, probeFirst = false)
+
+        assertSame(live, service.getStreamInfo(YOUTUBE_URL))
+        coEvery { liveHlsService.getStreamInfo(YOUTUBE_URL) } returns ExtractionResult.Failure("no live")
+        assertSame(failure, service.getStreamInfo(YOUTUBE_URL))
+    }
+
+    @Test
     fun retriesActiveLiveWithLiveHlsClientWhenMwebHasNoManifest() = runTest {
         val metadataService = mockk<StreamService>()
         val liveHlsService = mockk<StreamService>()

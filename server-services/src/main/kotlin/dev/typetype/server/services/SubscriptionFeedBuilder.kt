@@ -12,7 +12,7 @@ import kotlinx.coroutines.withTimeoutOrNull
 import java.net.URI
 
 class SubscriptionFeedBuilder(private val channelService: ChannelService) {
-    private val semaphore = Semaphore(MAX_CONCURRENT_FETCHES)
+    private val semaphore = Semaphore(SubscriptionFeedSettings.maxConcurrentFetches)
 
     suspend fun build(subscriptions: List<SubscriptionItem>): SubscriptionFeedBuildResult = coroutineScope {
         val outcomes = subscriptions.map { subscription ->
@@ -116,7 +116,6 @@ class SubscriptionFeedBuilder(private val channelService: ChannelService) {
     )
 
     companion object {
-        private const val MAX_CONCURRENT_FETCHES = 20
         private const val CHANNEL_TIMEOUT_MS = 15_000L
         private val YOUTUBE_CHANNEL_TABS = setOf("featured", "videos", "shorts", "streams", "playlists", "community", "about")
     }
