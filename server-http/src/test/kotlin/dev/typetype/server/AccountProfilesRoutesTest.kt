@@ -1,5 +1,7 @@
 package dev.typetype.server
 
+import dev.typetype.server.db.tables.RecommenderFeedbackTable
+import dev.typetype.server.db.tables.RecommenderUserSettingsTable
 import dev.typetype.server.db.tables.UsersTable
 import dev.typetype.server.models.AccountProfileItem
 import dev.typetype.server.routes.accountProfilesRoutes
@@ -23,7 +25,9 @@ import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.server.routing.routing
 import io.ktor.server.testing.testApplication
 import kotlinx.serialization.json.Json
+import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.jdbc.insert
+import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -142,6 +146,33 @@ class AccountProfilesRoutesTest {
         assertEquals(ProfileMutationResult.Deleted, profileService.delete(TEST_USER_ID, profile.id))
         val listed = profileService.list(TEST_USER_ID)
         assertEquals(TEST_USER_ID, listed?.defaultProfileId)
+    }
+
+    @Test
+    fun `deleting a profile removes its recommender settings and feedback`() = withApp {
+        val created = profileService.create(TEST_USER_ID, "Temporary") as ProfileMutationResult.Success
+        val profileId = created.profile.id
+        transaction {
+            RecommenderUserSettingsTable.insert {
+                it[userId] = profileId
+                it[updatedAt] = 1L
+            }
+            RecommenderFeedbackTable.insert {
+                it[id] = "feedback-$profileId"
+                it[userId] = profileId
+                it[kind] = "video"
+                it[verdict] = "not_for_me"
+                it[algorithmId] = "test"
+                it[createdAt] = 1L
+            }
+        }
+
+        assertEquals(ProfileMutationResult.Deleted, profileService.delete(TEST_USER_ID, profileId))
+        val remainingRows = transaction {
+            RecommenderUserSettingsTable.selectAll().where { RecommenderUserSettingsTable.userId eq profileId }.count() +
+                RecommenderFeedbackTable.selectAll().where { RecommenderFeedbackTable.userId eq profileId }.count()
+        }
+        assertEquals(0L, remainingRows)
     }
 
     private fun withApp(block: suspend io.ktor.server.testing.ApplicationTestBuilder.() -> Unit) = testApplication {

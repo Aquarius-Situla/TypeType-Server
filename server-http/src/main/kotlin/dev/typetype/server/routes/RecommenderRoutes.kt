@@ -69,6 +69,9 @@ fun Route.recommenderRoutes(
         call.withJwtAuth(authService) { userId ->
             if (!call.recommenderOffered(recommender)) return@withJwtAuth
             val settings = recommender.settingsService.get(userId)
+            if (!settings.enabled) {
+                return@withJwtAuth call.respond(HttpStatusCode.Forbidden, ErrorResponse("Turn on recommendations to view this profile", "recommender_disabled"))
+            }
             val algorithmId = settings.algorithmId ?: recommender.catalog.defaultId(call.recommenderLocale())
                 ?: return@withJwtAuth call.respond(HttpStatusCode.BadGateway, ErrorResponse("recommender unavailable"))
             val profile = recommender.profileService.profile(

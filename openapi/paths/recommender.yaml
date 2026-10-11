@@ -79,6 +79,7 @@ RecommenderProfile:
             schema: { type: object, additionalProperties: true }
       '401': { description: Missing or invalid token }
       '404': { description: Recommender not installed or switched off }
+      '403': { description: Recommendations are not enabled for this profile }
       '502': { description: Recommender unreachable }
 RecommenderFeedback:
   get:
