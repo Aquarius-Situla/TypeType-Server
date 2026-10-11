@@ -17,6 +17,9 @@ class HomeRecommendationWarmupService(
     private val tracker = HomeWarmupTracker(WARMUP_THROTTLE_MS, ACTIVE_TTL_MS)
     private val poolCache = HomeRecommendationPoolCache(cache)
 
+    @Volatile
+    var homeServedElsewhere: suspend (String) -> Boolean = { false }
+
     init {
         scope.launch { refreshLoop() }
     }
@@ -43,8 +46,10 @@ class HomeRecommendationWarmupService(
 
     private suspend fun warm(userId: String) {
         val context = context()
-        runCatching {
-            recommendationService.getHome(userId, YOUTUBE_SERVICE_ID, WARMUP_LIMIT, HomeRecommendationCursor(), context)
+        if (!runCatching { homeServedElsewhere(userId) }.getOrDefault(false)) {
+            runCatching {
+                recommendationService.getHome(userId, YOUTUBE_SERVICE_ID, WARMUP_LIMIT, HomeRecommendationCursor(), context)
+            }
         }
         runCatching {
             recommendationService.getShorts(userId, YOUTUBE_SERVICE_ID, WARMUP_LIMIT, HomeRecommendationCursor(), context)
