@@ -18,25 +18,31 @@ object YoutubeTakeoutHistoryParser {
     fun parseWithDiagnostics(html: String, requireWatchedMarker: Boolean = true): YoutubeTakeoutHistoryParseResult {
         val resolvedHtml = html.replace("\u00a0", " ")
         var invalidDates = 0L
-        val items = videoLinkRegex.findAll(resolvedHtml).mapNotNull { match ->
+        val links = videoLinkRegex.findAll(resolvedHtml).toList()
+        val items = links.asSequence().mapIndexedNotNull { index, match ->
             val prefixStart = (match.range.first - WATCHED_PREFIX_CHARS).coerceAtLeast(0)
             if (requireWatchedMarker && !YoutubeTakeoutActivityClassifier.isWatched(
                     resolvedHtml.substring(prefixStart, match.range.first),
                 )
             ) {
-                return@mapNotNull null
+                return@mapIndexedNotNull null
             }
             val tailStart = match.range.last + 1
-            val tail = rowTailRegex.matchAt(resolvedHtml, tailStart) ?: return@mapNotNull null
-            val url = extractUrl(match.groupValues[1]) ?: return@mapNotNull null
+            val tail = rowTailRegex.matchAt(resolvedHtml, tailStart) ?: return@mapIndexedNotNull null
+            val url = extractUrl(match.groupValues[1]) ?: return@mapIndexedNotNull null
             val title = decode(match.groupValues[2])
-            if (YoutubeTakeoutUnavailableItem.matches(title)) return@mapNotNull null
+            if (YoutubeTakeoutUnavailableItem.matches(title)) return@mapIndexedNotNull null
+            val nextLink = links.getOrNull(index + 1)?.range?.first ?: resolvedHtml.length
+            val hasChannel = tail.groupValues[1].isNotBlank()
+            if (YoutubeTakeoutAdMarker.isAdEntry(resolvedHtml, tail.range.last + 1, nextLink, hasChannel)) {
+                return@mapIndexedNotNull null
+            }
             val channelUrl = tail.groupValues[1].takeIf { it.isNotBlank() }.orEmpty()
             val channelName = decode(tail.groupValues[2]).ifBlank { "Unknown channel" }
             val dateText = decode(tail.groupValues[3])
             val watchedAt = parseDate(dateText) ?: run {
                 invalidDates += 1
-                return@mapNotNull null
+                return@mapIndexedNotNull null
             }
             HistoryItem(
                 url = url,

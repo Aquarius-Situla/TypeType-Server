@@ -10,6 +10,7 @@ object YoutubeTakeoutRowParser {
         val channelId = values.pickHeader(YoutubeTakeoutSchemaHints::isChannelIdHeader)
             ?: values.pickValue(YoutubeTakeoutSchemaHints::looksLikeChannelId)
         val channelUrl = values.pickHeader(YoutubeTakeoutSchemaHints::isChannelUrlHeader)
+            ?.takeIf(YoutubeTakeoutSchemaHints::containsChannelUrl)
             ?: values.pickValue(YoutubeTakeoutSchemaHints::containsChannelUrl)
             ?: channelId?.let { "https://www.youtube.com/channel/$it" }
         val name = values.pickHeader(YoutubeTakeoutSchemaHints::isChannelTitleHeader)

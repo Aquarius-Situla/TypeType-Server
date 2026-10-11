@@ -3,6 +3,7 @@ package dev.typetype.server.portability
 import com.fasterxml.jackson.core.JsonParser
 import com.fasterxml.jackson.core.JsonToken
 import dev.typetype.server.services.YoutubeTakeoutActivityClassifier
+import dev.typetype.server.services.YoutubeTakeoutAdMarker
 import dev.typetype.server.services.YoutubeTakeoutDateParser
 import dev.typetype.server.services.YoutubeTakeoutPathHints
 import dev.typetype.server.services.YoutubeTakeoutTextNormalizer
@@ -40,13 +41,13 @@ object YoutubeTakeoutJsonPortabilityReader {
         return namedHistory || YoutubeTakeoutPathHints.isHistoryEntry(path) || "youtube" in normalized
     }
 
-    fun read(input: InputStream, sink: PortabilityRecordSink) {
+    fun read(input: InputStream, sink: PortabilityRecordSink, subscriptionsListed: Boolean = false) {
         PortabilityJsonFactory.createParser(input.buffered()).use { parser ->
-            read(parser, sink)
+            read(parser, sink, subscriptionsListed)
         }
     }
 
-    private fun read(parser: JsonParser, sink: PortabilityRecordSink) {
+    private fun read(parser: JsonParser, sink: PortabilityRecordSink, subscriptionsListed: Boolean) {
         if (parser.nextToken() != JsonToken.START_ARRAY) {
             parser.skipChildren()
             return
@@ -83,7 +84,10 @@ object YoutubeTakeoutJsonPortabilityReader {
             if (YoutubeTakeoutActivityClassifier.isSubscribedAction(entry.title) ||
                 entry.controls.any(YoutubeTakeoutActivityClassifier::isSubscribed)
             ) {
-                entry.channel()?.let { sink.write(PortabilitySubscription(it.url, it.name)) }
+                entry.channel()?.let {
+                    if (subscriptionsListed) YoutubeTakeoutSubscriptionDates.remember(sink, it.url, timestamp ?: 0L)
+                    else sink.write(PortabilitySubscription(it.url, it.name, subscribedAt = timestamp ?: 0L))
+                }
             }
         }
         if (historyRecords > 0) sink.markCategory(PortabilityCategory.HISTORY)
@@ -149,13 +153,11 @@ object YoutubeTakeoutJsonPortabilityReader {
             normalized.startsWith("viewed a post") || normalized.startsWith("viewed ads")
     }
 
-    private fun YoutubeTakeoutJsonEntry.isAd(): Boolean = details.any {
-        val normalized = YoutubeTakeoutTextNormalizer.normalize(it)
-        normalized in setOf("ads", "advertisement", "advertisements", "annonces", "werbung") ||
-            normalized.contains("google ads")
-    } || YoutubeTakeoutTextNormalizer.normalize(title).let {
-        it.startsWith("viewed ads on youtube") || it.startsWith("watched ads on youtube")
-    }
+    private fun YoutubeTakeoutJsonEntry.isAd(): Boolean = details.any(YoutubeTakeoutAdMarker::isAdDetail) ||
+        YoutubeTakeoutAdMarker.isAdShape(details, hasChannel = subtitles.any { it.url.isNotBlank() }) ||
+        YoutubeTakeoutTextNormalizer.normalize(title).let {
+            it.startsWith("viewed ads on youtube") || it.startsWith("watched ads on youtube")
+        }
 
     private fun findVideoUrl(value: String): String? = videoUrlRegex.find(value)?.value?.let {
         when {
