@@ -6,6 +6,7 @@ import dev.typetype.server.services.BilibiliRelatedService
 import dev.typetype.server.services.BilibiliTrendingService
 import dev.typetype.server.services.AuthenticatedSabrInfoService
 import dev.typetype.server.services.CachedChannelService
+import dev.typetype.server.services.CachedImageProxyService
 import dev.typetype.server.services.CachedCommentService
 import dev.typetype.server.services.CachedManifestService
 import dev.typetype.server.services.CachedNativeManifestService
@@ -189,7 +190,7 @@ internal class ExtractionServiceRegistry(
         cache,
     )
     val providerMediaHandleService = ProviderMediaHandleService(cache)
-    val proxyService = OkHttpProxyService(proxyHttpClient, providerMediaHandleService)
+    val proxyService = CachedImageProxyService(OkHttpProxyService(proxyHttpClient, providerMediaHandleService), cache)
     val nicoVideoProxyService = NicoVideoProxyService(mediaHandleService = providerMediaHandleService)
     val manifestService = CachedManifestService(ManifestService(streamService, providerMediaHandleService), cache)
     val nativeManifestService = CachedNativeManifestService(NativeManifestService(), cache)
