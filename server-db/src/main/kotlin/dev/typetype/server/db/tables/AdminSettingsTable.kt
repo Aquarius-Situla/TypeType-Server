@@ -24,5 +24,11 @@ object AdminSettingsTable : Table("admin_settings") {
     val rssMaxItems = integer("rss_max_items").default(50)
     val rssMinimumPollMinutes = integer("rss_minimum_poll_minutes").default(5)
     val rssRateLimitPerMinute = integer("rss_rate_limit_per_minute").default(30)
+    val recommenderEnabled = bool("recommender_enabled").default(false)
+    val recommenderDefaultOn = bool("recommender_default_on").default(false)
+    val recommenderDefaultAlgorithm = text("recommender_default_algorithm").nullable()
+    val recommenderAllowedAlgorithms = text("recommender_allowed_algorithms").default("")
+    val recommenderTimeoutMs = integer("recommender_timeout_ms").default(0)
+    val recommenderStreamRequestsPerMinute = integer("recommender_stream_requests_per_minute").default(0)
     override val primaryKey = PrimaryKey(id)
 }

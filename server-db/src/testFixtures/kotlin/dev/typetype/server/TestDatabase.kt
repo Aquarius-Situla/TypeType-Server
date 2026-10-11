@@ -43,6 +43,8 @@ import dev.typetype.server.db.tables.UserAvatarsTable
 import dev.typetype.server.db.tables.UserChannelInterestTable
 import dev.typetype.server.db.tables.UserTopicInterestTable
 import dev.typetype.server.db.tables.RecommendationEventsTable
+import dev.typetype.server.db.tables.RecommenderFeedbackTable
+import dev.typetype.server.db.tables.RecommenderUserSettingsTable
 import dev.typetype.server.db.tables.RecommendationFeedHistoryTable
 import dev.typetype.server.db.tables.RecommendationFeedbackTable
 import dev.typetype.server.db.tables.RecommendationOnboardingPreferencesTable
@@ -118,6 +120,8 @@ object TestDatabase {
         value?.takeIf { it.isNotBlank() } ?: fallback
 
     fun truncateAll() = transaction {
+        RecommenderUserSettingsTable.deleteAll()
+        RecommenderFeedbackTable.deleteAll()
         RssFeedChannelsTable.deleteAll()
         RssFeedServicesTable.deleteAll()
         RssFeedsTable.deleteAll()

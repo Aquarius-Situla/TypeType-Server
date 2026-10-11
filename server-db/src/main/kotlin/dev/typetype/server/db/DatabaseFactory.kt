@@ -118,6 +118,8 @@ object DatabaseFactory {
                 RecommendationFeedbackTable,
                 RecommendationOnboardingPreferencesTable,
                 RecommendationOnboardingStateTable,
+                dev.typetype.server.db.tables.RecommenderUserSettingsTable,
+                dev.typetype.server.db.tables.RecommenderFeedbackTable,
                 RssFeedsTable,
                 RssFeedChannelsTable,
                 RssFeedServicesTable,
@@ -174,6 +176,7 @@ object DatabaseFactory {
             DatabaseSubscriptionsCanonicalMigration.apply()
             DatabaseImportedMediaRepairMigration.apply()
             DatabaseCollectionMetadataMigration.apply()
+            DatabaseRecommenderMigration.apply()
         }
     }
     suspend fun <T> query(block: () -> T): T = blocking { transaction { block() } }
