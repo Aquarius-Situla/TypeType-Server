@@ -92,6 +92,16 @@ paths:
   /allowed/channels: { $ref: ./openapi/paths/access-control.yaml#/AllowedChannels }
   /allowed/channels/{channelUrl}: { $ref: ./openapi/paths/access-control.yaml#/AllowedChannel }
   /admin/settings: { $ref: ./openapi/paths/access-control.yaml#/AdminSettings }
+  /recommendations/home: { $ref: ./openapi/paths/recommender.yaml#/HomeRecommendations }
+  /recommendations/algorithms: { $ref: ./openapi/paths/recommender.yaml#/RecommenderAlgorithms }
+  /recommendations/settings: { $ref: ./openapi/paths/recommender.yaml#/RecommenderSettings }
+  /recommendations/profile: { $ref: ./openapi/paths/recommender.yaml#/RecommenderProfile }
+  /recommendations/data: { $ref: ./openapi/paths/recommender.yaml#/RecommenderData }
+  /recommendations/last-home: { $ref: ./openapi/paths/recommender.yaml#/RecommenderLastHome }
+  /recommendations/feedback: { $ref: ./openapi/paths/recommender.yaml#/RecommenderFeedback }
+  /recommendations/feedback/{id}: { $ref: ./openapi/paths/recommender.yaml#/RecommenderFeedbackEntry }
+  /admin/recommender/status: { $ref: ./openapi/paths/recommender-admin.yaml#/AdminRecommenderStatus }
+  /admin/recommender/feedback: { $ref: ./openapi/paths/recommender-admin.yaml#/AdminRecommenderFeedback }
   /admin/rss/feeds: { $ref: ./openapi/paths/rss-admin.yaml#/AdminRssFeeds }
   /admin/rss/feeds/{id}/enabled: { $ref: ./openapi/paths/rss-admin.yaml#/AdminRssFeedEnabled }
   /admin/rss/feeds/{id}: { $ref: ./openapi/paths/rss-admin.yaml#/AdminRssFeed }
@@ -224,6 +234,9 @@ components:
     PortabilityExportRequest: { $ref: ./openapi/components/portability.yaml#/PortabilityExportRequest }
     BlockedKeywordItem: { $ref: ./openapi/components/user-backup.yaml#/BlockedKeywordItem }
     AdminSettingsItem: { $ref: ./openapi/components/access-control.yaml#/AdminSettingsItem }
+    RecommenderCapability: { $ref: ./openapi/components/recommender.yaml#/RecommenderCapability }
+    RecommenderSettingsItem: { $ref: ./openapi/components/recommender.yaml#/RecommenderSettingsItem }
+    HomeRecommendationsResponse: { $ref: ./openapi/components/recommender.yaml#/HomeRecommendationsResponse }
     AllowedChannelItem: { $ref: ./openapi/components/access-control.yaml#/AllowedChannelItem }
     CommentsPageResponse: { $ref: ./openapi/components/media.yaml#/CommentsPageResponse }
     DownloadJob: { $ref: ./openapi/components/downloader.yaml#/DownloadJob }

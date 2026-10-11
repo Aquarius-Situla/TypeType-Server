@@ -59,6 +59,8 @@ InstanceResponse:
       $ref: '#/RssInstanceCapability'
     pushNotifications:
       $ref: '#/PushNotificationCapability'
+    recommender:
+      $ref: ./recommender.yaml#/RecommenderCapability
 RssInstanceCapability:
   type: object
   required: [enabled, maxFeedsPerUser, maxItems, minimumPollMinutes, rateLimitPerMinute]
