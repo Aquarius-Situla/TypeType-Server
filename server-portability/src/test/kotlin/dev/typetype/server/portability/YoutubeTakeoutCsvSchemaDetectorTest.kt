@@ -14,6 +14,38 @@ class YoutubeTakeoutCsvSchemaDetectorTest {
     lateinit var directory: Path
 
     @Test
+    fun `does not take the account's own channel files for subscriptions`() {
+        val archive = directory.resolve("takeout-own-channel.zip")
+        ZipOutputStream(Files.newOutputStream(archive)).use { output ->
+            output.entry(
+                "Takeout/YouTube et YouTube Music/abonnements/abonnements.csv",
+                "ID des chaînes,URL des chaînes,Titre des chaînes\n" +
+                    "UCsubscribed0000000000001,http://www.youtube.com/channel/UCsubscribed0000000000001,Une chaîne\n",
+            )
+            output.entry(
+                "Takeout/YouTube et YouTube Music/chaînes/configurations de l_URL de la chaîne.csv",
+                "ID de la chaîne,Nom de l'URL personnalisée 1 de la chaîne\nUCownchannel000000000001,myhandle\n",
+            )
+            output.entry(
+                "Takeout/YouTube et YouTube Music/chaînes/chaîne.csv",
+                "ID de la chaîne,Titre de la chaîne (d'origine),Visibilité de la chaîne\nUCownchannel000000000001,Me,Public\n",
+            )
+        }
+        val input = PortabilityInputFactory.create(archive, archive.fileName.toString(), "application/zip")
+        val spool = PortabilitySpool.create(directory)
+
+        try {
+            YoutubeTakeoutPortabilityAdapter().decode(input, spool)
+
+            val channels = mutableListOf<String>()
+            spool.forEach(PortabilityCategory.SUBSCRIPTIONS) { channels += (it as PortabilitySubscription).channelUrl }
+            assertEquals(listOf("http://www.youtube.com/channel/UCsubscribed0000000000001"), channels)
+        } finally {
+            spool.delete()
+        }
+    }
+
+    @Test
     fun `classifies unknown file names from ids urls and row shape`() {
         val archive = directory.resolve("takeout-unknown-language.zip")
         ZipOutputStream(Files.newOutputStream(archive)).use { output ->
