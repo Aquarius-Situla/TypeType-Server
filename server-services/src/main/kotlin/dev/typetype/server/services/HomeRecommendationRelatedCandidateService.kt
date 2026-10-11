@@ -4,6 +4,7 @@ import dev.typetype.server.models.ExtractionResult
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.withContext
 
 class HomeRecommendationRelatedCandidateService(
     private val streamService: StreamService,
@@ -29,7 +30,7 @@ class HomeRecommendationRelatedCandidateService(
         source: HomeRecommendationSourceTag,
         relatedPerSeedLimit: Int,
     ): List<HomeRecommendationTaggedVideo> =
-        when (val result = streamService.getStreamInfo(seedUrl)) {
+        when (val result = withContext(StreamRequestWatch.NobodyWaiting.mark) { streamService.getStreamInfo(seedUrl) }) {
             is ExtractionResult.Success -> result.data.relatedStreams
                 .asSequence()
                 .filter { it.url.isNotBlank() }
