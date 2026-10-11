@@ -18,5 +18,11 @@ object TypeTypePortabilitySettingsWriter {
             }
         }
         if (!written) json.writeNull()
+        source.forEach(PortabilityCategory.SETTINGS) { record ->
+            if (record is PortabilityRecommender) {
+                json.writeFieldName("recommender")
+                json.writeRawValue(record.values.toString())
+            }
+        }
     }
 }

@@ -219,6 +219,31 @@ class TypeTypeBackupServiceTest {
 
     private fun dev.typetype.server.models.TypeTypeContentFiltersBackup?.orEmptyKeywords() =
         this?.blockedKeywords?.map { it.keyword }.orEmpty()
+
+    @Test
+    fun `recommender choice and opinions follow the settings category`() = runTest {
+        settings.upsert(SOURCE, SettingsItem())
+        dev.typetype.server.db.DatabaseFactory.query {
+            dev.typetype.server.services.RecommenderUserDataRepository.saveSettings(
+                SOURCE,
+                dev.typetype.server.models.RecommenderSettingsItem(enabled = true, algorithmId = "signals-videos", mutedGroups = listOf("g")),
+                now = 1,
+            )
+            dev.typetype.server.services.RecommenderUserDataRepository.addFeedback(
+                SOURCE,
+                dev.typetype.server.models.RecommenderFeedbackItem(kind = "page", verdict = "good", algorithmId = "signals-videos", createdAt = 2),
+            )
+        }
+        val backup = service.export(SOURCE, setOf(TypeTypeBackupCategory.SETTINGS))
+        assertEquals("signals-videos", backup.recommender?.settings?.algorithmId)
+        repeat(2) { service.restore(TARGET, backup) }
+        val restored = dev.typetype.server.db.DatabaseFactory.query {
+            dev.typetype.server.services.RecommenderUserDataRepository.export(TARGET)
+        }
+        assertEquals(listOf("g"), restored?.settings?.mutedGroups)
+        assertEquals(1, restored?.feedback?.size)
+        assertEquals(null, service.export("nobody", setOf(TypeTypeBackupCategory.SETTINGS)).recommender)
+    }
 }
 
 private const val VIDEO_URL = "https://youtube.com/watch?v=backup"
