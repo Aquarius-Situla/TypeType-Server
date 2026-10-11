@@ -40,6 +40,12 @@ class AdminSettingsService(
                     rssMaxItems = it[AdminSettingsTable.rssMaxItems],
                     rssMinimumPollMinutes = it[AdminSettingsTable.rssMinimumPollMinutes],
                     rssRateLimitPerMinute = it[AdminSettingsTable.rssRateLimitPerMinute],
+                    recommenderEnabled = it[AdminSettingsTable.recommenderEnabled],
+                    recommenderDefaultOn = it[AdminSettingsTable.recommenderDefaultOn],
+                    recommenderDefaultAlgorithm = it[AdminSettingsTable.recommenderDefaultAlgorithm],
+                    recommenderAllowedAlgorithms = it[AdminSettingsTable.recommenderAllowedAlgorithms].toAlgorithmIds(),
+                    recommenderTimeoutMs = it[AdminSettingsTable.recommenderTimeoutMs],
+                    recommenderStreamRequestsPerMinute = it[AdminSettingsTable.recommenderStreamRequestsPerMinute],
                 ).normalized()
             } ?: defaultSettings().normalized()
         }
@@ -72,6 +78,12 @@ class AdminSettingsService(
                     it[rssMaxItems] = settings.rssMaxItems
                     it[rssMinimumPollMinutes] = settings.rssMinimumPollMinutes
                     it[rssRateLimitPerMinute] = settings.rssRateLimitPerMinute
+                    it[recommenderEnabled] = settings.recommenderEnabled
+                    it[recommenderDefaultOn] = settings.recommenderDefaultOn
+                    it[recommenderDefaultAlgorithm] = settings.recommenderDefaultAlgorithm
+                    it[recommenderAllowedAlgorithms] = settings.recommenderAllowedAlgorithms.joinToString(",")
+                    it[recommenderTimeoutMs] = settings.recommenderTimeoutMs
+                    it[recommenderStreamRequestsPerMinute] = settings.recommenderStreamRequestsPerMinute
                 }
             } else {
                 AdminSettingsTable.insert {
@@ -95,6 +107,12 @@ class AdminSettingsService(
                     it[rssMaxItems] = settings.rssMaxItems
                     it[rssMinimumPollMinutes] = settings.rssMinimumPollMinutes
                     it[rssRateLimitPerMinute] = settings.rssRateLimitPerMinute
+                    it[recommenderEnabled] = settings.recommenderEnabled
+                    it[recommenderDefaultOn] = settings.recommenderDefaultOn
+                    it[recommenderDefaultAlgorithm] = settings.recommenderDefaultAlgorithm
+                    it[recommenderAllowedAlgorithms] = settings.recommenderAllowedAlgorithms.joinToString(",")
+                    it[recommenderTimeoutMs] = settings.recommenderTimeoutMs
+                    it[recommenderStreamRequestsPerMinute] = settings.recommenderStreamRequestsPerMinute
                 }
             }
         }
@@ -119,10 +137,16 @@ class AdminSettingsService(
             rssMaxItems = rssMaxItems.coerceIn(1, 200),
             rssMinimumPollMinutes = rssMinimumPollMinutes.coerceIn(1, 1_440),
             rssRateLimitPerMinute = rssRateLimitPerMinute.coerceIn(1, 600),
+            recommenderDefaultAlgorithm = recommenderDefaultAlgorithm.normalizeOptionalText(),
+            recommenderAllowedAlgorithms = recommenderAllowedAlgorithms.map { it.trim() }.filter { it.isNotEmpty() }.distinct(),
+            recommenderTimeoutMs = recommenderTimeoutMs.coerceIn(0, 60_000),
+            recommenderStreamRequestsPerMinute = recommenderStreamRequestsPerMinute.coerceIn(0, 10_000),
         )
     }
 
     private fun String?.normalizeOptionalText(): String? = this?.trim()?.takeIf { it.isNotEmpty() }
+
+    private fun String.toAlgorithmIds(): List<String> = split(',').map { it.trim() }.filter { it.isNotEmpty() }
 
     private fun String?.normalizePublicBaseUrl(): String? {
         val value = normalizeOptionalText() ?: return null
@@ -149,6 +173,8 @@ class AdminSettingsService(
 
 private fun defaultAdminSettingsFromEnvironment(): AdminSettingsItem = AdminSettingsItem(
     youtubeRemoteLoginEnabled = envFlag("YOUTUBE_REMOTE_LOGIN_ENABLED"),
+    recommenderEnabled = envFlag("RECOMMENDER_ENABLED"),
+    recommenderDefaultOn = envFlag("RECOMMENDER_DEFAULT_ON"),
 )
 
 private fun envFlag(name: String): Boolean = System.getenv(name)?.trim()?.lowercase().let {

@@ -6,6 +6,7 @@ import dev.typetype.server.INSTANCE_API_VERSION
 import dev.typetype.server.models.InstanceMinClientVersion
 import dev.typetype.server.models.InstanceResponse
 import dev.typetype.server.models.OidcPublicConfig
+import dev.typetype.server.models.RecommenderCapability
 import dev.typetype.server.models.YoutubeRemoteLoginStatus
 import dev.typetype.server.models.RssInstanceCapability
 import dev.typetype.server.models.PushNotificationCapability
@@ -23,6 +24,7 @@ class InstanceService(
         }
     },
     private val pushNotificationCapabilityProvider: () -> PushNotificationCapability = { PushNotificationCapability() },
+    private val recommenderInstalled: () -> Boolean = { false },
 ) {
 
     suspend fun getInstance(): InstanceResponse {
@@ -59,6 +61,9 @@ class InstanceService(
                 rateLimitPerMinute = settings.rssRateLimitPerMinute,
             ),
             pushNotifications = pushNotificationCapabilityProvider(),
+            recommender = recommenderInstalled().let { installed ->
+                RecommenderCapability(installed = installed, enabled = installed && settings.recommenderEnabled)
+            },
         )
     }
 
