@@ -23,6 +23,10 @@ SettingsItem:
       maximum: 60
       default: 10
     volume: { type: number, format: double, default: 1.0 }
+    hideUpcomingPlaylistVideos:
+      type: boolean
+      default: false
+      description: Hide upcoming playlist titles and thumbnails by default.
     muted: { type: boolean, default: false }
     notificationPopupsEnabled: { type: boolean, default: true }
     subtitlesEnabled: { type: boolean, default: false }

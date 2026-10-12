@@ -27,6 +27,7 @@ fun ResultRow.toSettingsItem(): SettingsItem = SettingsItem(
     autoplayOnOpen = this[SettingsTable.autoplayOnOpen],
     autoplayCountdownSeconds = this[SettingsTable.autoplayCountdownSeconds],
     skipPlaylistAutoplayScreen = this[SettingsTable.skipPlaylistAutoplayScreen],
+    hideUpcomingPlaylistVideos = this[SettingsTable.hideUpcomingPlaylistVideos],
     volume = this[SettingsTable.volume],
     muted = this[SettingsTable.muted],
     notificationPopupsEnabled = this[SettingsTable.notificationPopupsEnabled],
@@ -71,6 +72,7 @@ fun UpdateBuilder<*>.writeSettings(settings: SettingsItem) {
     this[SettingsTable.autoplayOnOpen] = settings.autoplayOnOpen
     this[SettingsTable.autoplayCountdownSeconds] = settings.autoplayCountdownSeconds
     this[SettingsTable.skipPlaylistAutoplayScreen] = settings.skipPlaylistAutoplayScreen
+    this[SettingsTable.hideUpcomingPlaylistVideos] = settings.hideUpcomingPlaylistVideos
     this[SettingsTable.volume] = settings.volume
     this[SettingsTable.muted] = settings.muted
     this[SettingsTable.notificationPopupsEnabled] = settings.notificationPopupsEnabled

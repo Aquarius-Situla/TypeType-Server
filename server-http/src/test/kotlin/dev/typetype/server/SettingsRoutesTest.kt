@@ -154,4 +154,27 @@ class SettingsRoutesTest {
         }.bodyAsText()
         assertTrue(body.contains("\"defaultPlaybackSpeed\":4.0"))
     }
+    @Test
+    fun `upcoming playlist visibility defaults to visible and survives partial updates`() = withApp {
+        val get = suspend {
+            client.get("/settings") {
+                headers.append(HttpHeaders.Authorization, "Bearer test-jwt")
+            }.bodyAsText()
+        }
+        assertTrue(get().contains("\"hideUpcomingPlaylistVideos\":false"))
+        for (patch in listOf("""{"hideUpcomingPlaylistVideos":true}""", """{"volume":0.5}""")) {
+            assertEquals(HttpStatusCode.OK, client.put("/settings") {
+                headers.append(HttpHeaders.Authorization, "Bearer test-jwt")
+                headers.append(HttpHeaders.ContentType, ContentType.Application.Json.toString())
+                setBody(patch)
+            }.status)
+            assertTrue(get().contains("\"hideUpcomingPlaylistVideos\":true"))
+        }
+        client.put("/settings") {
+            headers.append(HttpHeaders.Authorization, "Bearer test-jwt")
+            headers.append(HttpHeaders.ContentType, ContentType.Application.Json.toString())
+            setBody("""{"hideUpcomingPlaylistVideos":false}""")
+        }
+        assertTrue(get().contains("\"hideUpcomingPlaylistVideos\":false"))
+    }
 }
