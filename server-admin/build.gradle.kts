@@ -20,7 +20,7 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2")
     implementation("com.github.TeamNewPipe:nanojson:1d9e1aea9049fc9f85e68b43ba39fe7be1c1f751")
     implementation("com.github.TypeType-Video.PipePipeExtractor:extractor:064d580853f71a19a5432ebe83fdfd02b03a344d")
-    implementation("com.fasterxml.jackson.core:jackson-core:2.22.2")
+    implementation("com.fasterxml.jackson.core:jackson-core:2.22.3")
     implementation("org.slf4j:slf4j-api:2.0.16")
     testImplementation("io.ktor:ktor-server-test-host-jvm:3.5.2")
     testImplementation("io.ktor:ktor-server-content-negotiation-jvm:3.5.2")

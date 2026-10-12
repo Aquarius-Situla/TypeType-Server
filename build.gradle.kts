@@ -38,7 +38,7 @@ dependencies {
     implementation(project(":server-http"))
     implementation(project(":server-sabr"))
     implementation(project(":server-token-gateway"))
-    implementation(platform("com.fasterxml.jackson:jackson-bom:2.22.2"))
+    implementation(platform("com.fasterxml.jackson:jackson-bom:2.22.3"))
     implementation("com.fasterxml.jackson.core:jackson-core")
     implementation(platform("io.netty:netty-bom:4.2.17.Final"))
     constraints {
