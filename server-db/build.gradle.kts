@@ -5,10 +5,10 @@ plugins {
 
 dependencies {
     api(project(":server-core"))
-    api("org.jetbrains.exposed:exposed-core:1.5.0")
-    api("org.jetbrains.exposed:exposed-jdbc:1.5.0")
+    api("org.jetbrains.exposed:exposed-core:1.5.1")
+    api("org.jetbrains.exposed:exposed-jdbc:1.5.1")
     api("com.zaxxer:HikariCP:7.1.0")
-    implementation("org.postgresql:postgresql:42.7.13")
+    implementation("org.postgresql:postgresql:42.7.14")
     implementation("org.xerial:sqlite-jdbc:3.53.4.0")
     testImplementation("org.testcontainers:testcontainers:2.0.5")
     testImplementation("org.testcontainers:testcontainers-postgresql:2.0.5")
@@ -18,7 +18,7 @@ dependencies {
     testImplementation(project(":server-test-support"))
     testImplementation("org.junit.jupiter:junit-jupiter:6.1.3")
     testImplementation("io.mockk:mockk:1.14.11")
-    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.10.2")
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.11.0")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
