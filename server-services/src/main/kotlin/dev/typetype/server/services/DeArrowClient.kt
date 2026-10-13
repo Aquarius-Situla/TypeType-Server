@@ -6,6 +6,7 @@ import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import java.io.IOException
 import java.util.concurrent.TimeUnit
 
 interface DeArrowRemote {
@@ -19,10 +20,23 @@ class DeArrowClient(
 ) : DeArrowRemote {
     private val limiter = Semaphore(MAX_CONCURRENT_REQUESTS)
 
-    override suspend fun branding(videoId: String): String? =
-        // DeArrow answers 404 for a video nobody submitted anything for: that is "nothing", not an outage.
-        get("https://sponsor.ajay.app/api/branding?videoID=$videoId&fetchAll=true", whenNotFound = NO_BRANDING)
-            ?.decodeToString()
+    override suspend fun branding(videoId: String): String? = withContext(Dispatchers.IO) {
+        limiter.withPermit {
+            try {
+                client.newCall(request("https://sponsor.ajay.app/api/branding?videoID=$videoId&fetchAll=true"))
+                    .execute()
+                    .use { response ->
+                        when {
+                            response.code == HTTP_NOT_FOUND -> null
+                            !response.isSuccessful -> throw DeArrowUnavailableException()
+                            else -> response.body.string().takeIf { it.isNotBlank() }
+                        }
+                    }
+            } catch (exception: IOException) {
+                throw DeArrowUnavailableException(exception)
+            }
+        }
+    }
 
     override suspend fun thumbnail(videoId: String, timestamp: Double): ByteArray? =
         get("https://dearrow-thumb.ajay.app/api/v1/getThumbnail?videoID=$videoId&time=$timestamp")
@@ -30,21 +44,22 @@ class DeArrowClient(
     override suspend fun fallbackThumbnail(videoId: String): ByteArray? =
         get("https://i.ytimg.com/vi/$videoId/hqdefault.jpg")
 
-    private suspend fun get(url: String, whenNotFound: ByteArray? = null): ByteArray? = withContext(Dispatchers.IO) {
+    private fun request(url: String): Request = Request.Builder()
+        .url(url)
+        .header("User-Agent", USER_AGENT)
+        .get()
+        .build()
+
+    private suspend fun get(url: String): ByteArray? = withContext(Dispatchers.IO) {
         limiter.withPermit {
-            runCatching {
-                client.newCall(
-                    Request.Builder()
-                        .url(url)
-                        .header("User-Agent", USER_AGENT)
-                        .get()
-                        .build(),
-                ).execute().use { response ->
-                    if (response.code == HTTP_NOT_FOUND) return@use whenNotFound
+            try {
+                client.newCall(request(url)).execute().use { response ->
                     if (!response.isSuccessful) return@use null
                     response.body.bytes().takeIf { it.isNotEmpty() }
                 }
-            }.getOrNull()
+            } catch (_: IOException) {
+                null
+            }
         }
     }
 
@@ -52,7 +67,6 @@ class DeArrowClient(
         private const val MAX_CONCURRENT_REQUESTS = 6
         private const val USER_AGENT = "TypeType-DeArrow/1.0"
         private const val HTTP_NOT_FOUND = 404
-        private val NO_BRANDING = "{}".toByteArray()
 
         fun defaultClient(): OkHttpClient = OkHttpClient.Builder()
             .connectTimeout(4, TimeUnit.SECONDS)

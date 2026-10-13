@@ -38,9 +38,25 @@ class DeArrowServiceTest {
     }
 
     @Test
-    fun `does not cache upstream failures`() = runBlocking {
+    fun `caches upstream no-result responses`() = runBlocking {
         val cache = FakeCacheService()
         val remote = FakeDeArrowRemote().apply { brandingResult = null }
+        val service = DeArrowService(cache, remote)
+
+        val first = service.get("stZ3ZoR_8eg")
+        val second = service.get("stZ3ZoR_8eg")
+
+        assertEquals("stZ3ZoR_8eg", first?.videoId)
+        assertEquals(null, first?.title)
+        assertEquals(first, second)
+        assertTrue(cache.keys().contains("dearrow:branding:v3:stZ3ZoR_8eg"))
+        assertEquals(1, remote.brandingCalls)
+    }
+
+    @Test
+    fun `does not cache upstream failures`() = runBlocking {
+        val cache = FakeCacheService()
+        val remote = FakeDeArrowRemote().apply { brandingFailure = DeArrowUnavailableException() }
         val service = DeArrowService(cache, remote)
 
         assertThrows(DeArrowUnavailableException::class.java) {
@@ -48,6 +64,7 @@ class DeArrowServiceTest {
         }
         assertTrue(cache.keys().isEmpty())
 
+        remote.brandingFailure = null
         remote.brandingResult = FakeDeArrowRemote.BRANDING
         assertEquals("Clear title", service.get("stZ3ZoR_8eg")?.title)
         assertEquals(2, remote.brandingCalls)
@@ -75,10 +92,12 @@ private class FakeDeArrowRemote : DeArrowRemote {
     var thumbnailCalls = 0
     var fallbackThumbnailCalls = 0
     var brandingResult: String? = BRANDING
+    var brandingFailure: RuntimeException? = null
     var thumbnailResult: ByteArray? = byteArrayOf(1, 2, 3)
 
     override suspend fun branding(videoId: String): String? {
         brandingCalls += 1
+        brandingFailure?.let { throw it }
         return brandingResult
     }
 

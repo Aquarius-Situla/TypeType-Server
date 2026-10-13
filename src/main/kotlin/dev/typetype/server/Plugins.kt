@@ -94,6 +94,3 @@ fun Application.configurePlugins(authService: AuthService) {
     }
     configureStatusPages()
 }
-
-
-

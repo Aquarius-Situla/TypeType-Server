@@ -14,7 +14,8 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import java.util.Base64
 
-class DeArrowUnavailableException : RuntimeException("DeArrow is temporarily unavailable")
+class DeArrowUnavailableException(cause: Throwable? = null) :
+    RuntimeException("DeArrow is temporarily unavailable", cause)
 
 data class DeArrowThumbnail(
     val bytes: ByteArray,
@@ -30,8 +31,7 @@ class DeArrowService(
         cache.get("dearrow:branding:v3:$videoId")?.let {
             return runCatching { CacheJson.decodeFromString(DeArrowItem.serializer(), it) }.getOrNull()
         }
-        val raw = client.branding(videoId) ?: throw DeArrowUnavailableException()
-        val item = parse(videoId, raw)
+        val item = client.branding(videoId)?.let { parse(videoId, it) } ?: DeArrowItem(videoId)
         cache.set(
             "dearrow:branding:v3:$videoId",
             CacheJson.encodeToString(DeArrowItem.serializer(), item),
