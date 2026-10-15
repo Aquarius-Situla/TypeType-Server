@@ -124,8 +124,8 @@ class ServiceRegistry(
             SubscriptionFeedCacheInvalidatorImpl(cache, subscriptionFeedService),
         )
     }
-    val notificationsService = NotificationsService(subscriptionFeedService)
     val channelNotificationPreferenceService = ChannelNotificationPreferenceService(subscriptionsService)
+    val notificationsService = NotificationsService(subscriptionFeedService, channelNotificationPreferenceService)
     val pushNotificationService = PushNotificationService(
         subscriptionsService = subscriptionsService,
         subscriptionFeedService = subscriptionFeedService,

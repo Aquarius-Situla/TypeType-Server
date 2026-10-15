@@ -18,6 +18,7 @@ import java.security.MessageDigest
 
 class NotificationsService(
     private val subscriptionFeedService: SubscriptionFeedService,
+    private val channelNotificationPreferenceService: ChannelNotificationPreferenceService,
 ) {
     private val unreadCache = BoundedExpiringCache<String, Int>(
         maxEntries = 2048,
@@ -29,7 +30,7 @@ class NotificationsService(
         if (!feed.available && feed.videos.isEmpty()) {
             return NotificationsResponse(emptyList(), cachedUnread(userId), null, false)
         }
-        val items = withReadState(buildItems(feed.videos), userId)
+        val items = withReadState(buildItems(enabledVideos(userId, feed)), userId)
         val unreadCount = unreadCount(items, userId)
         val from = page * limit
         if (from >= items.size) {
@@ -43,8 +44,12 @@ class NotificationsService(
     suspend fun getUnreadCount(userId: String): UnreadCountResponse {
         val feed = loadFeed(userId)
         if (!feed.available && feed.videos.isEmpty()) return UnreadCountResponse(cachedUnread(userId), false)
-        val value = unreadCount(withReadState(buildItems(feed.videos), userId), userId)
+        val value = unreadCount(withReadState(buildItems(enabledVideos(userId, feed)), userId), userId)
         return UnreadCountResponse(value, feed.available)
+    }
+
+    fun invalidateUnreadCount(userId: String) {
+        unreadCache.remove(userId)
     }
 
     suspend fun markAllRead(userId: String): MarkNotificationsReadResponse {
@@ -52,7 +57,7 @@ class NotificationsService(
         if (!feed.available) {
             return MarkNotificationsReadResponse(System.currentTimeMillis(), cachedUnread(userId), false)
         }
-        val items = buildItems(feed.videos)
+        val items = buildItems(enabledVideos(userId, feed))
         val now = System.currentTimeMillis()
         DatabaseFactory.query {
             items.forEach { item ->
@@ -84,7 +89,7 @@ class NotificationsService(
         if (!feed.available) {
             return MarkNotificationsReadResponse(System.currentTimeMillis(), cachedUnread(userId), false)
         }
-        val items = buildItems(feed.videos)
+        val items = buildItems(enabledVideos(userId, feed))
         val now = System.currentTimeMillis()
         if (items.any { it.id == notificationId }) {
             DatabaseFactory.query {
@@ -99,9 +104,22 @@ class NotificationsService(
         return MarkNotificationsReadResponse(now, unread, true)
     }
 
-    private suspend fun loadFeed(userId: String): SubscriptionFeedAvailability =
-        runCatching { subscriptionFeedService.getAllWithAvailability(userId) }
-            .getOrElse { SubscriptionFeedAvailability(emptyList(), false) }
+    private suspend fun loadFeed(userId: String): SubscriptionFeedWithSources =
+        runCatching { subscriptionFeedService.getAllWithSources(userId) }
+            .getOrElse { SubscriptionFeedWithSources(emptyList(), false, emptyMap()) }
+
+    private suspend fun enabledVideos(userId: String, feed: SubscriptionFeedWithSources): List<VideoItem> {
+        val enabledChannels = channelNotificationPreferenceService.enabledChannelUrls(userId)
+        if (enabledChannels.isEmpty()) return emptyList()
+        return feed.videos.filter { video ->
+            val channelUrls = feed.sourceChannelUrls[video.subscriptionFeedKey()]
+                .orEmpty()
+                .ifEmpty { listOf(video.uploaderUrl) }
+            channelUrls.any { channelUrl ->
+                ChannelUrlCanonicalizer.canonicalize(channelUrl) in enabledChannels
+            }
+        }
+    }
 
     private suspend fun withReadState(items: List<NotificationItem>, userId: String): List<NotificationItem> {
         val readIds = DatabaseFactory.query {

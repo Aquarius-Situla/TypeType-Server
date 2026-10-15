@@ -10,8 +10,9 @@ import dev.typetype.server.db.tables.NotificationStatesTable
 import dev.typetype.server.models.NotificationsResponse
 import dev.typetype.server.services.AuthService
 import dev.typetype.server.services.ChannelService
+import dev.typetype.server.services.ChannelNotificationPreferenceService
 import dev.typetype.server.services.NotificationsService
-import dev.typetype.server.services.SubscriptionFeedAvailability
+import dev.typetype.server.services.SubscriptionFeedWithSources
 import dev.typetype.server.services.SubscriptionFeedService
 import dev.typetype.server.services.SubscriptionsService
 import io.ktor.client.request.get
@@ -40,6 +41,7 @@ import org.junit.jupiter.api.Test
 class NotificationsRoutesTest {
     private lateinit var channelService: ChannelService
     private lateinit var subscriptionsService: SubscriptionsService
+    private lateinit var channelNotificationPreferenceService: ChannelNotificationPreferenceService
     private lateinit var notificationsService: NotificationsService
     private val auth = AuthService.fixed(TEST_USER_ID)
 
@@ -50,12 +52,13 @@ class NotificationsRoutesTest {
         TestDatabase.truncateAll()
         channelService = mockk()
         subscriptionsService = SubscriptionsService()
+        channelNotificationPreferenceService = ChannelNotificationPreferenceService(subscriptionsService)
         val subscriptionFeedService = SubscriptionFeedService(
             subscriptionsService,
             channelService,
             FakeCacheService(),
         )
-        notificationsService = NotificationsService(subscriptionFeedService)
+        notificationsService = NotificationsService(subscriptionFeedService, channelNotificationPreferenceService)
     }
     private fun withApp(block: suspend ApplicationTestBuilder.() -> Unit) = testApplication {
         application {
@@ -73,15 +76,17 @@ class NotificationsRoutesTest {
 
     @Test
     fun `GET notifications returns every new video with service identity`() = withApp {
-        subscriptionsService.add(TEST_USER_ID, subscription("https://yt.com/c/a", "A"))
-        subscriptionsService.add(TEST_USER_ID, subscription("https://yt.com/c/b", "B"))
-        coEvery { channelService.getChannel("https://yt.com/c/a", null) } returns channel(
+        subscriptionsService.add(TEST_USER_ID, subscription("https://yt.com/c/A", "A"))
+        subscriptionsService.add(TEST_USER_ID, subscription("https://yt.com/c/B", "B"))
+        enableChannelNotifications("https://yt.com/c/A")
+        enableChannelNotifications("https://yt.com/c/B")
+        coEvery { channelService.getChannel("https://yt.com/c/A", null) } returns channel(
             video(1000L, "A", "https://www.youtube.com/watch?v=yt-old"),
             video(3000L, "A", "https://www.youtube.com/watch?v=yt-new"),
         )
-        coEvery { channelService.getChannel("https://yt.com/c/b", null) } returns channel(
-            video(2000L, "A", "https://www.bilibili.com/video/av2000"),
-            video(4000L, "A", "https://www.nicovideo.jp/watch/sm4000"),
+        coEvery { channelService.getChannel("https://yt.com/c/B", null) } returns channel(
+            video(2000L, "B", "https://www.bilibili.com/video/av2000"),
+            video(4000L, "B", "https://www.nicovideo.jp/watch/sm4000"),
         )
         val body = client.get("/notifications?page=0&limit=10") {
             headers.append(HttpHeaders.Authorization, "Bearer test-jwt")
@@ -96,8 +101,9 @@ class NotificationsRoutesTest {
 
     @Test
     fun `POST notifications read-all clears unread count`() = withApp {
-        subscriptionsService.add(TEST_USER_ID, subscription("https://yt.com/c/a", "A"))
-        coEvery { channelService.getChannel("https://yt.com/c/a", null) } returns channel(video(3000L, "A"))
+        subscriptionsService.add(TEST_USER_ID, subscription("https://yt.com/c/A", "A"))
+        enableChannelNotifications("https://yt.com/c/A")
+        coEvery { channelService.getChannel("https://yt.com/c/A", null) } returns channel(video(3000L, "A"))
         val before = client.get("/notifications") {
             headers.append(HttpHeaders.Authorization, "Bearer test-jwt")
         }.bodyAsText()
@@ -114,8 +120,9 @@ class NotificationsRoutesTest {
 
     @Test
     fun `GET notifications unread-count returns unread count`() = withApp {
-        subscriptionsService.add(TEST_USER_ID, subscription("https://yt.com/c/a", "A"))
-        coEvery { channelService.getChannel("https://yt.com/c/a", null) } returns channel(video(4000L, "A"))
+        subscriptionsService.add(TEST_USER_ID, subscription("https://yt.com/c/A", "A"))
+        enableChannelNotifications("https://yt.com/c/A")
+        coEvery { channelService.getChannel("https://yt.com/c/A", null) } returns channel(video(4000L, "A"))
 
         val before = client.get("/notifications/unread-count") {
             headers.append(HttpHeaders.Authorization, "Bearer test-jwt")
@@ -134,8 +141,9 @@ class NotificationsRoutesTest {
 
     @Test
     fun `read watermark remains effective when one notification has an explicit read row`() = withApp {
-        subscriptionsService.add(TEST_USER_ID, subscription("https://yt.com/c/a", "A"))
-        coEvery { channelService.getChannel("https://yt.com/c/a", null) } returns channel(
+        subscriptionsService.add(TEST_USER_ID, subscription("https://yt.com/c/A", "A"))
+        enableChannelNotifications("https://yt.com/c/A")
+        coEvery { channelService.getChannel("https://yt.com/c/A", null) } returns channel(
             video(1000L, "A", "https://www.youtube.com/watch?v=old"),
             video(2000L, "A", "https://www.youtube.com/watch?v=new"),
         )
@@ -165,9 +173,11 @@ class NotificationsRoutesTest {
     @Test
     fun `cached notifications remain visible when refresh fails`() = runTest {
         val feed = mockk<SubscriptionFeedService>()
-        coEvery { feed.getAllWithAvailability(TEST_USER_ID) } returns
-            SubscriptionFeedAvailability(listOf(video(1000L, "A")), false)
-        val service = NotificationsService(feed)
+        subscriptionsService.add(TEST_USER_ID, subscription("https://yt.com/c/A", "A"))
+        enableChannelNotifications("https://yt.com/c/A")
+        coEvery { feed.getAllWithSources(TEST_USER_ID) } returns
+            SubscriptionFeedWithSources(listOf(video(1000L, "A")), false, emptyMap())
+        val service = NotificationsService(feed, channelNotificationPreferenceService)
         val response = service.getNotifications(TEST_USER_ID, 0, 20)
         assertEquals(1, response.items.size)
         assertEquals(1, response.unreadCount)
@@ -178,17 +188,70 @@ class NotificationsRoutesTest {
     }
 
     @Test
-    fun `unread count reports unavailable instead of trusting a fresh cache`() = runTest {
+    fun `unread count preserves cache during feed failure and clears it after preferences change`() = runTest {
         val feed = mockk<SubscriptionFeedService>()
+        subscriptionsService.add(TEST_USER_ID, subscription("https://yt.com/c/A", "A"))
+        enableChannelNotifications("https://yt.com/c/A")
         val availableVideo = video(1000L, "A")
-        coEvery { feed.getAllWithAvailability(TEST_USER_ID) } returnsMany listOf(
-            SubscriptionFeedAvailability(listOf(availableVideo), true),
-            SubscriptionFeedAvailability(emptyList(), false),
+        coEvery { feed.getAllWithSources(TEST_USER_ID) } returnsMany listOf(
+            SubscriptionFeedWithSources(listOf(availableVideo), true, emptyMap()),
+            SubscriptionFeedWithSources(emptyList(), false, emptyMap()),
+            SubscriptionFeedWithSources(emptyList(), false, emptyMap()),
         )
-        val service = NotificationsService(feed)
+        val service = NotificationsService(feed, channelNotificationPreferenceService)
         assertEquals(1, service.getUnreadCount(TEST_USER_ID).unreadCount)
         val unavailable = service.getUnreadCount(TEST_USER_ID)
         assertEquals(1, unavailable.unreadCount)
+
+        service.invalidateUnreadCount(TEST_USER_ID)
+        val afterPreferenceChange = service.getUnreadCount(TEST_USER_ID)
+        assertEquals(0, afterPreferenceChange.unreadCount)
+        assertTrue(!afterPreferenceChange.available)
         assertTrue(!unavailable.available)
+    }
+
+    @Test
+    fun `channel preferences match the followed source when uploader url differs`() = runTest {
+        val followedUrl = "https://www.youtube.com/@alias"
+        subscriptionsService.add(TEST_USER_ID, subscription(followedUrl, "Alias"))
+        enableChannelNotifications(followedUrl)
+        val item = video(1000L, "Creator")
+        val feed = mockk<SubscriptionFeedService>()
+        coEvery { feed.getAllWithSources(TEST_USER_ID) } returns SubscriptionFeedWithSources(
+            videos = listOf(item),
+            available = true,
+            sourceChannelUrls = mapOf(item.url to listOf(followedUrl)),
+        )
+        val service = NotificationsService(feed, channelNotificationPreferenceService)
+
+        val response = service.getNotifications(TEST_USER_ID, 0, 20)
+
+        assertEquals(1, response.items.size)
+    }
+
+    @Test
+    fun `notification feed and unread count use channel opt in preferences`() = withApp {
+        subscriptionsService.add(TEST_USER_ID, subscription("https://yt.com/c/A", "A"))
+        subscriptionsService.add(TEST_USER_ID, subscription("https://yt.com/c/B", "B"))
+        coEvery { channelService.getChannel("https://yt.com/c/A", null) } returns channel(video(1000L, "A"))
+        coEvery { channelService.getChannel("https://yt.com/c/B", null) } returns channel(video(2000L, "B"))
+
+        val disabled = Json.decodeFromString<NotificationsResponse>(client.get("/notifications?page=0&limit=10") {
+            headers.append(HttpHeaders.Authorization, "Bearer test-jwt")
+        }.bodyAsText())
+        assertTrue(disabled.items.isEmpty())
+        assertEquals(0, disabled.unreadCount)
+
+        enableChannelNotifications("https://yt.com/c/A")
+        val enabled = Json.decodeFromString<NotificationsResponse>(client.get("/notifications?page=0&limit=10") {
+            headers.append(HttpHeaders.Authorization, "Bearer test-jwt")
+        }.bodyAsText())
+        assertEquals(1, enabled.items.size)
+        assertEquals("https://yt.com/c/A", enabled.items.single().channelUrl)
+        assertEquals(1, enabled.unreadCount)
+    }
+
+    private suspend fun enableChannelNotifications(channelUrl: String) {
+        channelNotificationPreferenceService.set(TEST_USER_ID, channelUrl, true)
     }
 }

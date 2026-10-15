@@ -46,7 +46,7 @@ internal fun Route.userDataRoutes(
     allowedChannelsRoutes(svc.allowedChannelsService, authService)
     blockedRoutes(svc.blockedService, authService)
     notificationsRoutes(svc.notificationsService, authService)
-    pushNotificationRoutes(svc.pushNotificationService, authService)
+    pushNotificationRoutes(svc.pushNotificationService, authService, svc.notificationsService)
     youtubeSessionRoutes(svc.youtubeSessionService, authService)
     biliBiliSessionRoutes(svc.bilibiliSessionService, authService)
     youtubeTakeoutImportRoutes(svc.youtubeTakeoutImportService, authService)

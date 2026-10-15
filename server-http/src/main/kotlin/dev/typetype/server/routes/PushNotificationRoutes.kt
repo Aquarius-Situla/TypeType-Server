@@ -7,6 +7,7 @@ import dev.typetype.server.services.DeviceRegistrationResult
 import dev.typetype.server.services.PreferenceUpdateResult
 import dev.typetype.server.services.PushNotificationService
 import dev.typetype.server.services.AuthService
+import dev.typetype.server.services.NotificationsService
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.request.receive
 import io.ktor.server.response.respond
@@ -19,6 +20,7 @@ import io.ktor.server.routing.put
 internal fun Route.pushNotificationRoutes(
     service: PushNotificationService,
     authService: AuthService,
+    notificationsService: NotificationsService,
 ) {
     get("/notifications/channel-preferences") {
         call.withJwtAuth(authService) { userId ->
@@ -33,7 +35,10 @@ internal fun Route.pushNotificationRoutes(
                     ErrorResponse("Invalid channel notification preference", "push_request_invalid"),
                 )
             when (val result = service.setPreference(userId, request.channelUrl, request.enabled)) {
-                is PreferenceUpdateResult.Updated -> call.respond(result.preference)
+                is PreferenceUpdateResult.Updated -> {
+                    notificationsService.invalidateUnreadCount(userId)
+                    call.respond(result.preference)
+                }
                 PreferenceUpdateResult.NotSubscribed -> call.respond(
                     HttpStatusCode.Conflict,
                     ErrorResponse("Channel is not subscribed", "channel_not_subscribed"),
