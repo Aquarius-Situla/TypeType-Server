@@ -19,6 +19,14 @@ class BiliBiliSessionService(
 ) {
     private val json = Json { ignoreUnknownKeys = true }
     private val client = OkHttpClient()
+    private val refreshService = crypto?.let { configuredCrypto ->
+        BiliBiliSessionRefreshService(
+            configuredCrypto,
+            BiliBiliSessionRefreshStore(),
+            BiliBiliCookieRefreshClient(),
+            nowMillis,
+        )
+    }
 
     val isConfigured: Boolean = crypto != null
 
@@ -49,6 +57,7 @@ class BiliBiliSessionService(
                 store.completeForUser(
                     userId = userId,
                     encryptedCookies = crypto.encrypt(result.cookieHeader),
+                    encryptedRefreshToken = result.refreshToken?.let(crypto::encrypt),
                     expiresAt = parseSessDataExpiry(result.cookieHeader) ?: estimateExpiry(),
                 )
                 BiliBiliQrPollResponse("confirmed")
@@ -63,7 +72,9 @@ class BiliBiliSessionService(
     suspend fun status(userId: String): BiliBiliSessionStatusResponse {
         if (!isConfigured) return BiliBiliSessionStatusResponse(BiliBiliSessionStatus.Disconnected.value, 0, 0)
         val stored = store.status(userId)
-        if (stored.status == BiliBiliSessionStatus.Connected.value && stored.expiresAt > 0 && stored.expiresAt < nowMillis()) {
+        if (stored.status == BiliBiliSessionStatus.Connected.value && stored.expiresAt > 0 &&
+            stored.expiresAt < nowMillis() && !store.hasRefreshToken(userId)
+        ) {
             store.markNeedsReconnect(userId)
             return stored.copy(status = BiliBiliSessionStatus.NeedsReconnect.value)
         }
@@ -111,6 +122,8 @@ class BiliBiliSessionService(
 
     suspend fun markNeedsReconnect(userId: String) = store.markNeedsReconnect(userId)
 
+    suspend fun refreshDueSessions() = refreshService?.refreshDueSessions() ?: 0
+
     private fun parseSessDataExpiry(cookieHeader: String): Long? {
         val sessData = cookieHeader.split(";")
             .map { it.trim() }
@@ -145,4 +158,3 @@ sealed class BiliBiliQrLoginResult {
     data class Error(val message: String) : BiliBiliQrLoginResult()
     object Unavailable : BiliBiliQrLoginResult()
 }
-                    encryptedRefreshToken = result.refreshToken?.let(crypto::encrypt),
