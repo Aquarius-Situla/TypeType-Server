@@ -145,3 +145,4 @@ sealed class BiliBiliQrLoginResult {
     data class Error(val message: String) : BiliBiliQrLoginResult()
     object Unavailable : BiliBiliQrLoginResult()
 }
+                    encryptedRefreshToken = result.refreshToken?.let(crypto::encrypt),

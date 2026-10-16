@@ -177,6 +177,7 @@ object DatabaseFactory {
             DatabaseImportedMediaRepairMigration.apply()
             DatabaseCollectionMetadataMigration.apply()
             DatabaseRecommenderMigration.apply()
+            DatabaseBiliBiliSessionRefreshMigration.apply()
         }
     }
     suspend fun <T> query(block: () -> T): T = blocking { transaction { block() } }
