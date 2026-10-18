@@ -2,6 +2,7 @@ package dev.typetype.server.services
 
 object YoutubeSessionCookieNormalizer {
     private const val MAX_RAW_COOKIE_LENGTH = 1024 * 1024
+    private const val HTTP_ONLY_COOKIE_PREFIX = "#HttpOnly_"
     private val allowedNames = setOf(
         "SID",
         "HSID",
@@ -49,10 +50,12 @@ object YoutubeSessionCookieNormalizer {
 
     private fun parseNetscape(raw: String): Map<String, YoutubeSessionCookie> =
         raw.lineSequence().mapNotNull { line ->
-            if (line.isBlank() || line.startsWith("#")) return@mapNotNull null
+            val httpOnly = line.startsWith(HTTP_ONLY_COOKIE_PREFIX)
+            if (line.isBlank() || (line.startsWith("#") && !httpOnly)) return@mapNotNull null
             val fields = line.split('\t')
             if (fields.size < 7) return@mapNotNull null
-            val priority = fields[0].domainPriority() ?: return@mapNotNull null
+            val domain = fields[0].removePrefix(HTTP_ONLY_COOKIE_PREFIX)
+            val priority = domain.domainPriority() ?: return@mapNotNull null
             YoutubeSessionCookie(name = fields[5].trim(), value = fields[6].trim(), priority = priority)
         }.toCookieMap()
 
