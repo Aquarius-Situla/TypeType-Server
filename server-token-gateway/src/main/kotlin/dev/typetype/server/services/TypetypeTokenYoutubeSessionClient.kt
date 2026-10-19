@@ -1,12 +1,16 @@
 package dev.typetype.server.services
 
 import com.grack.nanojson.JsonParser
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withContext
 import okhttp3.Call
 import okhttp3.Callback
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
+import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.Response
 import org.json.JSONObject
 import org.schabi.newpipe.extractor.services.youtube.YoutubeParsingHelper
@@ -27,6 +31,32 @@ class TypetypeTokenYoutubeSessionClient(
     private val tokenServiceUrl: String,
     private val client: OkHttpClient = OkHttpClient(),
 ) {
+    suspend fun importSessionBinding(cookies: String): TokenSessionBinding? =
+        withContext(Dispatchers.IO) {
+            val body = JSONObject().put("cookies", cookies).toString()
+                .toRequestBody("application/json".toMediaType())
+            val request = Request.Builder()
+                .url("${tokenServiceUrl.trimEnd('/')}/session-binding")
+                .post(body)
+                .build()
+            try {
+                client.newCall(request).execute().use { response ->
+                    if (!response.isSuccessful) {
+                        null
+                    } else {
+                        val payload = JSONObject(response.body?.string().orEmpty())
+                        TokenSessionBinding(
+                            cookies = payload.optString("cookies"),
+                            poToken = payload.optString("poToken"),
+                            authUser = payload.optInt("authUser"),
+                        ).takeIf { it.cookies.isNotBlank() && it.poToken.isNotBlank() }
+                    }
+                }
+            } catch (_: IOException) {
+                null
+            }
+        }
+
     suspend fun fetchHlsManifestUrl(videoId: String): String? = fetchSession(videoId)
         ?.optString("hlsManifestUrl")
         ?.trim()
@@ -149,3 +179,9 @@ class TypetypeTokenYoutubeSessionClient(
     }.getOrNull()
 
 }
+
+data class TokenSessionBinding(
+    val cookies: String,
+    val poToken: String,
+    val authUser: Int,
+)

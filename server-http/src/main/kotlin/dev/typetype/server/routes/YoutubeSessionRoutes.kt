@@ -2,6 +2,7 @@ package dev.typetype.server.routes
 
 import dev.typetype.server.models.ErrorResponse
 import dev.typetype.server.models.YoutubeSessionCompleteRequest
+import dev.typetype.server.models.YoutubeSessionImportRequest
 import dev.typetype.server.services.AuthService
 import dev.typetype.server.services.YoutubeSessionCompleteResult
 import dev.typetype.server.services.YoutubeSessionService
@@ -23,6 +24,33 @@ fun Route.youtubeSessionRoutes(youtubeSessionService: YoutubeSessionService, aut
                 )
             }
             call.respond(HttpStatusCode.Created, youtubeSessionService.createPairing(userId))
+        }
+    }
+    post("/youtube-session/import") {
+        call.withJwtAuth(authService) { userId ->
+            if (!youtubeSessionService.isConfigured) {
+                return@withJwtAuth call.respond(
+                    HttpStatusCode.ServiceUnavailable,
+                    ErrorResponse("YouTube Session is unavailable", "youtube_session_unavailable"),
+                )
+            }
+            val request = runCatching { call.receive<YoutubeSessionImportRequest>() }.getOrElse {
+                return@withJwtAuth call.respond(HttpStatusCode.BadRequest, ErrorResponse("Invalid request body"))
+            }
+            when (youtubeSessionService.importCookies(userId, request.cookies)) {
+                YoutubeSessionCompleteResult.Completed -> call.respond(HttpStatusCode.NoContent)
+                YoutubeSessionCompleteResult.InvalidCredentials -> call.respond(
+                    HttpStatusCode.Unauthorized,
+                    ErrorResponse("YouTube rejected the imported session", "youtube_session_invalid"),
+                )
+                YoutubeSessionCompleteResult.InvalidCode,
+                YoutubeSessionCompleteResult.ExpiredCode,
+                -> call.respond(HttpStatusCode.BadRequest, ErrorResponse("Invalid pairing code"))
+                YoutubeSessionCompleteResult.Unavailable -> call.respond(
+                    HttpStatusCode.ServiceUnavailable,
+                    ErrorResponse("YouTube Session is unavailable", "youtube_session_unavailable"),
+                )
+            }
         }
     }
     post("/youtube-session/complete") {

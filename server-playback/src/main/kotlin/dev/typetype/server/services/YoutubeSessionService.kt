@@ -8,8 +8,28 @@ class YoutubeSessionService(
     private val crypto: YoutubeSessionCrypto?,
     private val pairingStore: YoutubeSessionPairingStore = YoutubeSessionPairingStore(),
     private val store: YoutubeSessionStore = YoutubeSessionStore(),
+    private val bindingClient: TypetypeTokenYoutubeSessionClient? = null,
 ) {
     val isConfigured: Boolean = crypto != null
+
+    suspend fun importCookies(userId: String, rawCookies: String): YoutubeSessionCompleteResult {
+        val key = crypto ?: return YoutubeSessionCompleteResult.Unavailable
+        val binding = bindingClient?.importSessionBinding(rawCookies)
+            ?: return YoutubeSessionCompleteResult.InvalidCredentials
+        val cookies = YoutubeSessionCookieNormalizer.normalize(binding.cookies)
+            ?: return YoutubeSessionCompleteResult.InvalidCredentials
+        val poToken = binding.poToken.trim()
+        if (!validCredentials(cookies, poToken, binding.authUser)) {
+            return YoutubeSessionCompleteResult.InvalidCredentials
+        }
+        store.completeForUser(
+            userId = userId,
+            encryptedCookies = key.encrypt(cookies),
+            encryptedPoToken = key.encrypt(poToken),
+            authUser = binding.authUser,
+        )
+        return YoutubeSessionCompleteResult.Completed
+    }
 
     suspend fun createPairing(userId: String): YoutubeSessionPairingResponse =
         pairingStore.create(userId)

@@ -125,15 +125,17 @@ internal class ExtractionServiceRegistry(
         sabrPipePipeStreamService,
         YoutubePlayerClient.MWEB,
     )
+    private val tokenYoutubeSessionClient =
+        TypetypeTokenYoutubeSessionClient(subtitleServiceUrl, httpClient)
     private val youtubeSessionCrypto = youtubeSessionSecret?.let(YoutubeSessionCrypto::fromSecret)
     private val youtubeSessionStore = YoutubeSessionStore()
-    val youtubeSessionService = YoutubeSessionService(youtubeSessionCrypto, store = youtubeSessionStore)
+    val youtubeSessionService =
+        YoutubeSessionService(youtubeSessionCrypto, store = youtubeSessionStore, bindingClient = tokenYoutubeSessionClient)
     val youtubeSessionRefreshService =
         YoutubeSessionRefreshService(youtubeSessionCrypto, youtubeSessionStore)
     private val sabrTokenClient = TypetypeTokenSabrTokenClient(subtitleServiceUrl, httpClient)
     val authenticatedSabrInfoService = AuthenticatedSabrInfoService(youtubeSessionService, sabrTokenClient)
     private val hlsTokenService = youtubeSessionSecret?.let(::SignedHlsManifestTokenService)
-    private val tokenYoutubeSessionClient = TypetypeTokenYoutubeSessionClient(subtitleServiceUrl, httpClient)
     private val youtubeSabrFallbackStreamService = SabrFallbackStreamService(
         sabrPublicStreamService,
         sabrSessionStore,
