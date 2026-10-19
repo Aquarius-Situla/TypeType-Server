@@ -29,6 +29,7 @@ import dev.typetype.server.services.YoutubeRemoteBrowserService
 import dev.typetype.server.services.YoutubeRemoteLoginReadinessService
 import dev.typetype.server.services.PushNotificationScheduler
 import dev.typetype.server.services.BiliBiliSessionRefreshScheduler
+import dev.typetype.server.services.YoutubeSessionRefreshScheduler
 import dev.typetype.server.portability.PortabilityEngineFactory
 import io.ktor.server.application.Application
 import io.ktor.server.application.ApplicationStopped
@@ -84,8 +85,11 @@ fun Application.module() {
     pushNotificationScheduler.start()
     val bilibiliSessionRefreshScheduler = BiliBiliSessionRefreshScheduler(svc.bilibiliSessionService)
     bilibiliSessionRefreshScheduler.start()
+    val youtubeSessionRefreshScheduler = YoutubeSessionRefreshScheduler(svc.youtubeSessionRefreshService)
+    youtubeSessionRefreshScheduler.start()
     monitor.subscribe(ApplicationStopped) { pushNotificationScheduler.close() }
     monitor.subscribe(ApplicationStopped) { bilibiliSessionRefreshScheduler.close() }
+    monitor.subscribe(ApplicationStopped) { youtubeSessionRefreshScheduler.close() }
     monitor.subscribe(ApplicationStopped) { svc.subscriptionFeedService.close() }
     monitor.subscribe(ApplicationStopped) { svc.youtubeTakeoutImportService.close() }
     monitor.subscribe(ApplicationStopped) { svc.homeRecommendationServices.close() }

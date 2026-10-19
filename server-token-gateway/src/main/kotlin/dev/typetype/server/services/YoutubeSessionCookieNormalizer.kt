@@ -30,6 +30,8 @@ object YoutubeSessionCookieNormalizer {
         "YSC",
     )
 
+    internal fun isAllowedName(name: String): Boolean = name in allowedNames
+
     fun normalize(raw: String): String? {
         if (raw.length > MAX_RAW_COOKIE_LENGTH) return null
         val cookies = if ('\t' in raw) parseNetscape(raw) else parseHeader(raw)

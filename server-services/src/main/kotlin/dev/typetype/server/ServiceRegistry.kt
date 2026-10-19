@@ -71,6 +71,7 @@ class ServiceRegistry(
         youtubeProxySelector,
     )
     val youtubeSessionService = extraction.youtubeSessionService
+    val youtubeSessionRefreshService = extraction.youtubeSessionRefreshService
     val bilibiliSessionService = BiliBiliSessionService(
         System.getenv("BILIBILI_SESSION_ENCRYPTION_KEY")?.let { secret ->
             if (secret.length >= 32) BiliBiliSessionCrypto.fromSecret(secret) else null

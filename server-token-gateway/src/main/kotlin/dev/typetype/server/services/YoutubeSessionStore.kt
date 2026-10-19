@@ -87,6 +87,19 @@ class YoutubeSessionStore(
         }
     }
 
+    suspend fun connectedUserIds(): List<String> = DatabaseFactory.query {
+        YoutubeSessionsTable.selectAll()
+            .where { YoutubeSessionsTable.status eq YoutubeSessionStatus.Connected.value }
+            .map { it[YoutubeSessionsTable.userId] }
+    }
+
+    suspend fun replaceCookies(userId: String, encryptedCookies: String): Unit = DatabaseFactory.query {
+        YoutubeSessionsTable.update({ YoutubeSessionsTable.userId eq userId }) {
+            it[YoutubeSessionsTable.encryptedCookies] = encryptedCookies
+            it[updatedAt] = nowMillis()
+        }
+    }
+
     private fun upsertSession(
         userId: String,
         encryptedCookies: String,
