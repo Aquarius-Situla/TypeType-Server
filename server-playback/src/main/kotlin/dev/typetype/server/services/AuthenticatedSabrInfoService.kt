@@ -8,6 +8,8 @@ import kotlinx.coroutines.runInterruptible
 import org.schabi.newpipe.extractor.localization.ContentCountry
 import org.schabi.newpipe.extractor.localization.Localization
 import org.schabi.newpipe.extractor.services.youtube.YoutubeSessionPoToken
+import dev.typetype.server.models.ExtractionResult
+import dev.typetype.server.models.StreamResponse
 import dev.typetype.server.sabr.YoutubeSabrClientProfile
 import dev.typetype.server.sabr.YoutubeSabrInfo
 import dev.typetype.server.sabr.SabrAdapter
@@ -35,11 +37,49 @@ class AuthenticatedSabrInfoService(
     }
 
     private suspend fun fetchOauth(userId: String, videoId: String): AuthenticatedSabrInfoResult {
+        val player = fetchOauthPlayer(userId, videoId) ?: return AuthenticatedSabrInfoResult.NotConnected
+        val prepared = prepareOauth(userId, videoId, player)
+        if (prepared is AuthenticatedSabrInfoResult.Ready) youtubeSessionService.markUsed(userId)
+        return prepared
+    }
+
+    suspend fun oauthStream(userId: String, videoId: String): ExtractionResult<StreamResponse>? {
+        if (!youtubeSessionService.isOauthSession(userId)) return null
+        val player = fetchOauthPlayer(userId, videoId) ?: return null
+        val prepared = prepareOauth(userId, videoId, player)
+        if (prepared !is AuthenticatedSabrInfoResult.Ready) {
+            return ExtractionResult.Failure("Authenticated SABR playback unavailable")
+        }
+        youtubeSessionService.markUsed(userId)
+        return ExtractionResult.Success(player.toStreamResponse(videoId, prepared.prepared.info))
+    }
+
+    private suspend fun fetchOauthPlayer(userId: String, videoId: String): TvPlayerResponse? {
         val accessToken = youtubeSessionService.oauthAccessToken(userId)
-            ?: return AuthenticatedSabrInfoResult.NotConnected
+        if (accessToken == null) {
+            logger.warn("oauth_sabr_probe event=no_access_token videoId={}", videoId)
+            return null
+        }
         return try {
-            val player = tvClient.player(videoId, accessToken)
-                ?: return AuthenticatedSabrInfoResult.Failed
+            tvClient.player(videoId, accessToken).also {
+                if (it == null) logger.warn("oauth_sabr_probe event=empty_player videoId={}", videoId)
+            }
+        } catch (error: Exception) {
+            logger.warn(
+                "oauth_sabr_probe event=player_error videoId={} errorType={}",
+                videoId,
+                error::class.simpleName,
+            )
+            null
+        }
+    }
+
+    private fun prepareOauth(
+        userId: String,
+        videoId: String,
+        player: TvPlayerResponse,
+    ): AuthenticatedSabrInfoResult {
+        return try {
             val info = SabrAdapter.fromPlayerResponse(
                 videoId,
                 YoutubeSabrClientProfile.TVHTML5,
@@ -48,7 +88,6 @@ class AuthenticatedSabrInfoService(
             )
             val prepared = SabrPreparedInfo(info, null, source = SabrPreparedSource.AUTHENTICATED_YOUTUBE)
             if (!prepared.hasAudioAndVideoFormats()) return AuthenticatedSabrInfoResult.Failed
-            youtubeSessionService.markUsed(userId)
             AuthenticatedSabrInfoResult.Ready(prepared)
         } catch (error: CancellationException) {
             throw error
@@ -95,6 +134,58 @@ class AuthenticatedSabrInfoService(
     private companion object {
         val logger = LoggerFactory.getLogger(AuthenticatedSabrInfoService::class.java)
     }
+}
+
+private fun TvPlayerResponse.toStreamResponse(
+    videoId: String,
+    info: YoutubeSabrInfo,
+): StreamResponse {
+    val details = response.getObject("videoDetails")
+    val lengthSeconds = details.getString("lengthSeconds", "0").toLongOrNull() ?: 0L
+    return StreamResponse(
+        id = videoId,
+        title = details.getString("title", ""),
+        uploaderName = details.getString("author", ""),
+        uploaderUrl = details.getString("channelId", "")
+            .takeIf { it.isNotBlank() }
+            ?.let { "https://www.youtube.com/channel/$it" }
+            .orEmpty(),
+        uploaderAvatarUrl = "",
+        thumbnailUrl = "https://i.ytimg.com/vi/$videoId/hq720.jpg",
+        description = details.getString("shortDescription", ""),
+        duration = lengthSeconds,
+        viewCount = details.getString("viewCount", "-1").toLongOrNull() ?: -1L,
+        likeCount = -1L,
+        dislikeCount = -1L,
+        uploadDate = "",
+        uploaded = -1L,
+        uploaderSubscriberCount = -1L,
+        uploaderVerified = false,
+        category = "",
+        license = "",
+        visibility = "public",
+        tags = emptyList(),
+        streamType = if (details.getBoolean("isLiveContent", false)) "live_stream" else "video_stream",
+        isLive = details.getBoolean("isLive", false),
+        isPostLive = false,
+        isLiveContent = details.getBoolean("isLiveContent", false),
+        hasLiveManifest = false,
+        isShortFormContent = false,
+        requiresMembership = false,
+        startPosition = 0L,
+        streamSegments = emptyList(),
+        hlsUrl = "",
+        dashMpdUrl = "",
+        videoStreams = emptyList(),
+        audioStreams = emptyList(),
+        originalAudioTrackId = null,
+        preferredDefaultAudioTrackId = null,
+        videoOnlyStreams = emptyList(),
+        subtitles = emptyList(),
+        previewFrames = emptyList(),
+        sponsorBlockSegments = emptyList(),
+        relatedStreams = emptyList(),
+    ).withSabrFallback(videoId, info)
 }
 
 sealed interface AuthenticatedSabrInfoResult {
