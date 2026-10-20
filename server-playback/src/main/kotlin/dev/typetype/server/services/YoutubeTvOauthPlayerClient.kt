@@ -2,6 +2,7 @@ package dev.typetype.server.services
 
 import com.grack.nanojson.JsonObject
 import com.grack.nanojson.JsonParser
+import com.grack.nanojson.JsonWriter
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -55,7 +56,7 @@ class YoutubeTvOauthPlayerClient(
                 .value("racyCheckOk", true)
                 .value("contentCheckOk", true)
                 .done()
-                .toString()
+                .let { JsonWriter.string(it) }
                 .toRequestBody(JSON)
             val request = Request.Builder()
                 .url(PLAYER_URL)
@@ -65,7 +66,6 @@ class YoutubeTvOauthPlayerClient(
                 .header("Origin", "https://www.youtube.com")
                 .header("Referer", "https://www.youtube.com/")
                 .header("User-Agent", TV_USER_AGENT)
-                .header("Content-Type", "application/json")
                 .post(body)
                 .build()
             client.newCall(request).execute().use { response ->
@@ -89,12 +89,7 @@ class YoutubeTvOauthPlayerClient(
         val now = nowMillis()
         if (cached != null && now - cached.first < TIMESTAMP_TTL_MS) return cached.second
         return try {
-            val page = fetchText(TV_PAGE_URL, TV_USER_AGENT) ?: return null
-            val playerUrl = PLAYER_URL_REGEX.find(page)?.groupValues?.get(1) ?: return null
-            val script = fetchText("https://www.youtube.com$playerUrl", TV_USER_AGENT) ?: return null
-            val digits = SIGNATURE_REGEX.find(script)?.groupValues?.get(1) ?: return null
-            val value = if (digits.length == 5) "${digits}001".toLong() else digits.toLong()
-            clientVersion = TV_VERSION_REGEX.find(page)?.groupValues?.get(1) ?: clientVersion
+            val value = tvSignature(now) ?: webSignature(now) ?: return null
             signatureTimestamp = now to value
             value
         } catch (_: Exception) {
@@ -102,12 +97,45 @@ class YoutubeTvOauthPlayerClient(
         }
     }
 
+    private fun tvSignature(now: Long): Long? {
+        val page = fetchText(TV_PAGE_URL, TV_USER_AGENT) ?: return null
+        val playerUrl = PLAYER_URL_REGEX.find(page)?.groupValues?.get(1)?.replace("\\/", "/") ?: return null
+        val script = fetchText(
+            if (playerUrl.startsWith("/")) "https://www.youtube.com$playerUrl" else playerUrl,
+            TV_USER_AGENT,
+        ) ?: return null
+        val digits = SIGNATURE_REGEX.find(script)?.groupValues?.get(1) ?: return null
+        TV_VERSION_REGEX.find(page)?.groupValues?.get(1)?.let { clientVersion = it }
+        return if (digits.length == 5) "${digits}001".toLong() else digits.toLong()
+    }
+
+    private fun webSignature(now: Long): Long? {
+        val page = fetchText(WATCH_PROBE_URL, WEB_USER_AGENT) ?: return null
+        val playerUrl = WEB_JS_REGEX.find(page)?.groupValues?.get(1) ?: return null
+        val script = fetchText(
+            if (playerUrl.startsWith("/")) "https://www.youtube.com$playerUrl" else playerUrl,
+            WEB_USER_AGENT,
+        ) ?: return null
+        val digits = SIGNATURE_REGEX.find(script)?.groupValues?.get(1) ?: return null
+        return if (digits.length == 5) "${digits}001".toLong() else digits.toLong()
+    }
+
     private fun fetchText(url: String, userAgent: String): String? =
         client.newCall(
             Request.Builder().url(url).header("User-Agent", userAgent).get().build(),
-        ).execute().use { if (it.isSuccessful) it.body?.string() else null }
+        ).execute().use { response ->
+            val body = if (response.isSuccessful) response.body?.string() else null
+            logger.warn(
+                "tv_player_fetch host={} status={} bytes={}",
+                url.substringAfter("//").substringBefore("/"),
+                response.code,
+                body?.length ?: 0,
+            )
+            body
+        }
 
     private companion object {
+        val logger = org.slf4j.LoggerFactory.getLogger(YoutubeTvOauthPlayerClient::class.java)
         const val PLAYER_URL = "https://www.youtube.com/youtubei/v1/player"
         const val TV_PAGE_URL = "https://www.youtube.com/tv"
         const val CLIENT_NAME = "TVHTML5"
@@ -116,8 +144,13 @@ class YoutubeTvOauthPlayerClient(
         const val TIMESTAMP_TTL_MS = 6 * 60 * 60 * 1000L
         const val TV_USER_AGENT =
             "Mozilla/5.0 (SMART-TV; X11; Linux armv7l) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.85 Safari/537.36"
+        const val WEB_USER_AGENT =
+            "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0 Safari/537.36"
+        const val WATCH_PROBE_URL =
+            "https://www.youtube.com/watch?v=dQw4w9WgXcQ&bpctr=9999999999&has_verified=1"
         val JSON = "application/json".toMediaType()
         val PLAYER_URL_REGEX = Regex("""player_url":"([^"]+)"""")
+        val WEB_JS_REGEX = Regex(""""jsUrl":"([^"]+)"""")
         val SIGNATURE_REGEX = Regex("""signatureTimestamp:(\d+)""")
         val TV_VERSION_REGEX = Regex(""""INNERTUBE_CLIENT_VERSION":"([^"]+)"""")
     }
