@@ -93,16 +93,13 @@ class AuthenticatedSabrInfoService(
         player: OauthPlayer,
     ): AuthenticatedSabrInfoResult {
         return try {
-            val info = SabrAdapter.withAuthorization(
-                SabrAdapter.fromPlayerResponse(
-                    videoId,
-                    YoutubeSabrClientProfile.TVHTML5,
-                    player.response.cpn,
-                    player.response.response,
-                    player.tv.visitorData,
-                    player.response.clientVersion,
-                ),
-                "Bearer ${player.accessToken}",
+            val info = SabrAdapter.fromPlayerResponse(
+                videoId,
+                YoutubeSabrClientProfile.TVHTML5,
+                player.response.cpn,
+                player.response.response,
+                player.tv.visitorData,
+                player.response.clientVersion,
             )
             val prepared = SabrPreparedInfo(
                 info,
