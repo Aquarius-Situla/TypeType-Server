@@ -64,11 +64,6 @@ class YoutubeTvOauthPlayerClient(
                 .value("cpn", cpn)
                 .value("racyCheckOk", true)
                 .value("contentCheckOk", true)
-                .`object`("serviceIntegrityDimensions")
-                .apply {
-                    if (!poToken.isNullOrBlank()) value("poToken", poToken)
-                }
-                .end()
                 .apply {
                     if (!livingRoomPoTokenId.isNullOrBlank()) {
                         `object`("tvAppInfo").value("livingRoomPoTokenId", livingRoomPoTokenId).end()
@@ -96,7 +91,7 @@ class YoutubeTvOauthPlayerClient(
                 if (text.isBlank()) {
                     null
                 } else {
-                    TvPlayerResponse(cpn, JsonParser.`object`().from(text))
+                    TvPlayerResponse(cpn, JsonParser.`object`().from(text), clientVersion)
                 }
             }
         } catch (cancelled: CancellationException) {
@@ -181,4 +176,5 @@ class YoutubeTvOauthPlayerClient(
 data class TvPlayerResponse(
     val cpn: String,
     val response: JsonObject,
+    val clientVersion: String,
 )

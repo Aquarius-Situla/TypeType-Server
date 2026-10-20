@@ -100,6 +100,7 @@ class AuthenticatedSabrInfoService(
                     player.response.cpn,
                     player.response.response,
                     player.tv.visitorData,
+                    player.response.clientVersion,
                 ),
                 "Bearer ${player.accessToken}",
             )
