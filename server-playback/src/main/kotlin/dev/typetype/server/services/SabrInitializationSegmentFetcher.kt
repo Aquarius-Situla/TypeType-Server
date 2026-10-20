@@ -25,6 +25,11 @@ internal suspend fun fetchSabrInitializationSegment(
     }
     result.onFailure { error ->
         initFetcherLogger.warn(
+            "sabr_init_trace videoId={} trace={}",
+            holder.key.videoId,
+            holder.session.diagnosticTrace.takeLast(700),
+        )
+        initFetcherLogger.warn(
             "sabr_init event=fetch_failed videoId={} itag={} errorType={} error={}",
             holder.key.videoId,
             request.format.itag,
