@@ -115,8 +115,8 @@ fun Route.youtubeSessionRoutes(youtubeSessionService: YoutubeSessionService, aut
                     ErrorResponse("The YouTube device code expired", "youtube_device_expired"),
                 )
                 else -> call.respond(
-                    HttpStatusCode.BadGateway,
-                    ErrorResponse("Could not reach the YouTube device login", "youtube_device_unavailable"),
+                    HttpStatusCode.Gone,
+                    ErrorResponse("The YouTube device login was lost, start again", "youtube_device_expired"),
                 )
             }
         }
