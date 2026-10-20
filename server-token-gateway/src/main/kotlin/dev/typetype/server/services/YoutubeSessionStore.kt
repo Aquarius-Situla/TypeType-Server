@@ -42,6 +42,8 @@ class YoutubeSessionStore(
                     status = YoutubeSessionStatus.from(it[YoutubeSessionsTable.status]).value,
                     updatedAt = it[YoutubeSessionsTable.updatedAt],
                     lastUsedAt = it[YoutubeSessionsTable.lastUsedAt],
+                    authType = it[YoutubeSessionsTable.authType],
+                    accountLabel = it[YoutubeSessionsTable.accountLabel],
                 )
             }
             ?: YoutubeSessionStatusResponse(YoutubeSessionStatus.Disconnected.value, 0, 0)
@@ -64,6 +66,7 @@ class YoutubeSessionStore(
         YoutubeSessionsTable.selectAll()
             .where { YoutubeSessionsTable.userId eq userId }
             .singleOrNull()
+            ?.takeIf { it[YoutubeSessionsTable.authType] == AUTH_TYPE_COOKIES }
             ?.takeIf { YoutubeSessionStatus.from(it[YoutubeSessionsTable.status]) == YoutubeSessionStatus.Connected }
             ?.let {
                 EncryptedYoutubeSessionCredentials(
@@ -72,6 +75,71 @@ class YoutubeSessionStore(
                     authUser = it[YoutubeSessionsTable.authUser],
                 )
             }
+    }
+
+    suspend fun oauthEncrypted(userId: String): EncryptedOauthSessionCredentials? = DatabaseFactory.query {
+        YoutubeSessionsTable.selectAll()
+            .where { YoutubeSessionsTable.userId eq userId }
+            .singleOrNull()
+            ?.takeIf { it[YoutubeSessionsTable.authType] == AUTH_TYPE_OAUTH }
+            ?.takeIf { YoutubeSessionStatus.from(it[YoutubeSessionsTable.status]) == YoutubeSessionStatus.Connected }
+            ?.let {
+                EncryptedOauthSessionCredentials(
+                    accessToken = it[YoutubeSessionsTable.encryptedAccessToken],
+                    refreshToken = it[YoutubeSessionsTable.encryptedRefreshToken],
+                    accessExpiresAt = it[YoutubeSessionsTable.accessExpiresAt],
+                )
+            }
+    }
+
+    suspend fun storeOauthSession(
+        userId: String,
+        encryptedAccessToken: String,
+        encryptedRefreshToken: String,
+        accessExpiresAt: Long,
+        accountLabel: String,
+    ): Unit = DatabaseFactory.query {
+        val now = nowMillis()
+        val updated = YoutubeSessionsTable.update({ YoutubeSessionsTable.userId eq userId }) {
+            it[YoutubeSessionsTable.encryptedCookies] = ""
+            it[YoutubeSessionsTable.encryptedPoToken] = ""
+            it[YoutubeSessionsTable.encryptedAccessToken] = encryptedAccessToken
+            it[YoutubeSessionsTable.encryptedRefreshToken] = encryptedRefreshToken
+            it[YoutubeSessionsTable.accessExpiresAt] = accessExpiresAt
+            it[YoutubeSessionsTable.accountLabel] = accountLabel
+            it[YoutubeSessionsTable.authType] = AUTH_TYPE_OAUTH
+            it[YoutubeSessionsTable.status] = YoutubeSessionStatus.Connected.value
+            it[updatedAt] = now
+            it[lastUsedAt] = 0
+        }
+        if (updated == 0) {
+            YoutubeSessionsTable.insert {
+                it[YoutubeSessionsTable.userId] = userId
+                it[YoutubeSessionsTable.encryptedCookies] = ""
+                it[YoutubeSessionsTable.encryptedPoToken] = ""
+                it[YoutubeSessionsTable.encryptedAccessToken] = encryptedAccessToken
+                it[YoutubeSessionsTable.encryptedRefreshToken] = encryptedRefreshToken
+                it[YoutubeSessionsTable.accessExpiresAt] = accessExpiresAt
+                it[YoutubeSessionsTable.accountLabel] = accountLabel
+                it[YoutubeSessionsTable.authType] = AUTH_TYPE_OAUTH
+                it[YoutubeSessionsTable.status] = YoutubeSessionStatus.Connected.value
+                it[createdAt] = now
+                it[updatedAt] = now
+                it[lastUsedAt] = 0
+            }
+        }
+    }
+
+    suspend fun replaceAccessToken(
+        userId: String,
+        encryptedAccessToken: String,
+        accessExpiresAt: Long,
+    ): Unit = DatabaseFactory.query {
+        YoutubeSessionsTable.update({ YoutubeSessionsTable.userId eq userId }) {
+            it[YoutubeSessionsTable.encryptedAccessToken] = encryptedAccessToken
+            it[YoutubeSessionsTable.accessExpiresAt] = accessExpiresAt
+            it[updatedAt] = nowMillis()
+        }
     }
 
     suspend fun markUsed(userId: String): Unit = DatabaseFactory.query {
@@ -143,3 +211,12 @@ data class EncryptedYoutubeSessionCredentials(
     val poToken: String,
     val authUser: Int,
 )
+
+data class EncryptedOauthSessionCredentials(
+    val accessToken: String,
+    val refreshToken: String,
+    val accessExpiresAt: Long,
+)
+
+private const val AUTH_TYPE_COOKIES = "cookies"
+private const val AUTH_TYPE_OAUTH = "oauth_device"

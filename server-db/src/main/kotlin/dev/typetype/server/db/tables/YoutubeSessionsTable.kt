@@ -11,5 +11,10 @@ object YoutubeSessionsTable : Table("youtube_sessions") {
     val createdAt = long("created_at")
     val updatedAt = long("updated_at")
     val lastUsedAt = long("last_used_at").default(0)
+    val authType = text("auth_type").default("cookies")
+    val encryptedAccessToken = text("encrypted_access_token").default("")
+    val encryptedRefreshToken = text("encrypted_refresh_token").default("")
+    val accessExpiresAt = long("access_expires_at").default(0)
+    val accountLabel = text("account_label").default("")
     override val primaryKey = PrimaryKey(userId)
 }
