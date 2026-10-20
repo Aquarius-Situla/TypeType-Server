@@ -2,6 +2,7 @@ package dev.typetype.server.routes
 
 import dev.typetype.server.models.ErrorResponse
 import dev.typetype.server.models.YoutubeSessionCompleteRequest
+import dev.typetype.server.models.YoutubeDevicePollResponse
 import dev.typetype.server.models.YoutubeSessionImportRequest
 import dev.typetype.server.services.AuthService
 import dev.typetype.server.services.YoutubeSessionCompleteResult
@@ -84,9 +85,51 @@ fun Route.youtubeSessionRoutes(youtubeSessionService: YoutubeSessionService, aut
             call.respond(youtubeSessionService.status(userId))
         }
     }
+    post("/youtube-session/device/start") {
+        call.withJwtAuth(authService) { userId ->
+            if (!youtubeSessionService.isDeviceLoginConfigured) {
+                return@withJwtAuth call.respond(
+                    HttpStatusCode.ServiceUnavailable,
+                    ErrorResponse("YouTube Session is unavailable", "youtube_session_unavailable"),
+                )
+            }
+            val start = youtubeSessionService.startDeviceLogin(userId)
+                ?: return@withJwtAuth call.respond(
+                    HttpStatusCode.BadGateway,
+                    ErrorResponse("Could not start the YouTube device login", "youtube_device_unavailable"),
+                )
+            call.respond(HttpStatusCode.Created, start)
+        }
+    }
+    get("/youtube-session/device/status") {
+        call.withJwtAuth(authService) { userId ->
+            when (val status = youtubeSessionService.pollDeviceLogin(userId)) {
+                "connected" -> call.respond(HttpStatusCode.OK, YoutubeDevicePollResponse("connected"))
+                "pending", "slow_down" -> call.respond(HttpStatusCode.OK, YoutubeDevicePollResponse(status))
+                "denied" -> call.respond(
+                    HttpStatusCode.Gone,
+                    ErrorResponse("The YouTube authorization was denied", "youtube_device_denied"),
+                )
+                "expired" -> call.respond(
+                    HttpStatusCode.Gone,
+                    ErrorResponse("The YouTube device code expired", "youtube_device_expired"),
+                )
+                else -> call.respond(
+                    HttpStatusCode.BadGateway,
+                    ErrorResponse("Could not reach the YouTube device login", "youtube_device_unavailable"),
+                )
+            }
+        }
+    }
+    post("/youtube-session/device/cancel") {
+        call.withJwtAuth(authService) { userId ->
+            youtubeSessionService.cancelDeviceLogin(userId)
+            call.respond(HttpStatusCode.NoContent)
+        }
+    }
     delete("/youtube-session") {
         call.withJwtAuth(authService) { userId ->
-            youtubeSessionService.delete(userId)
+            youtubeSessionService.disconnectOauth(userId)
             call.respond(HttpStatusCode.NoContent)
         }
     }
