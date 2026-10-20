@@ -2,7 +2,6 @@ package dev.typetype.server.services
 
 import com.grack.nanojson.JsonObject
 import com.grack.nanojson.JsonParser
-import com.grack.nanojson.JsonWriter
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -34,44 +33,16 @@ class YoutubeTvOauthPlayerClient(
         try {
             val timestamp = signatureTimestamp() ?: return@withContext null
             val cpn = YoutubeParsingHelper.generateContentPlaybackNonce()
-            val body = JsonObject.builder()
-                .`object`("context")
-                .`object`("client")
-                .value("clientName", CLIENT_NAME)
-                .value("clientVersion", clientVersion)
-                .value("hl", "en")
-                .value("gl", "US")
-                .let { builder ->
-                    if (visitorData.isNullOrBlank()) builder else builder.value("visitorData", visitorData)
-                }
-                .value("deviceMake", "Google")
-                .value("deviceModel", "Chromecast")
-                .value("osName", "Android")
-                .value("osVersion", "10")
-                .value("platform", "TV")
-                .value("utcOffsetMinutes", 0)
-                .end()
-                .end()
-                .`object`("playbackContext")
-                .`object`("contentPlaybackContext")
-                .value("html5Preference", "HTML5_PREF_WANTS")
-                .value("lactMilliseconds", 60_000)
-                .value("isInlinePlaybackNoAd", true)
-                .value("signatureTimestamp", timestamp)
-                .end()
-                .end()
-                .value("videoId", videoId)
-                .value("cpn", cpn)
-                .value("racyCheckOk", true)
-                .value("contentCheckOk", true)
-                .apply {
-                    if (!livingRoomPoTokenId.isNullOrBlank()) {
-                        `object`("tvAppInfo").value("livingRoomPoTokenId", livingRoomPoTokenId).end()
-                    }
-                }
-                .done()
-                .let { JsonWriter.string(it) }
-                .toRequestBody(JSON)
+            val body = buildYoutubeTvOauthPlayerBody(
+                clientName = CLIENT_NAME,
+                videoId = videoId,
+                clientVersion = clientVersion,
+                visitorData = visitorData,
+                livingRoomPoTokenId = livingRoomPoTokenId,
+                poToken = poToken,
+                cpn = cpn,
+                signatureTimestamp = timestamp,
+            ).toRequestBody(JSON)
             val request = Request.Builder()
                 .url(PLAYER_URL)
                 .header("Authorization", "Bearer $accessToken")
