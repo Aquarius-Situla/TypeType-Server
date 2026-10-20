@@ -88,6 +88,7 @@ class AuthenticatedSabrTimeoutTest {
         val stream = mockk<StreamResponse>(relaxed = true)
         coEvery { metadata.getStreamInfo(USER_ID, URL) } returns ExtractionResult.Success(stream)
         coEvery { metadata.markYoutubeSessionNeedsReconnect(USER_ID) } returns Unit
+        coEvery { info.oauthStream(USER_ID, VIDEO_ID) } returns null
         coEvery { info.fetch(USER_ID, VIDEO_ID) } returns AuthenticatedSabrInfoResult.TimedOut
         val service = YoutubeSessionSabrStreamService(metadata, info)
 
@@ -107,6 +108,7 @@ class AuthenticatedSabrTimeoutTest {
         val tokenClient = mockk<TypetypeTokenSabrTokenClient>()
         val probeMock = mockk<AuthenticatedSabrProbe>()
         coEvery { sessions.connectedCredentials(USER_ID) } returns credentials()
+        coEvery { sessions.isOauthSession(any()) } returns false
         coEvery { sessions.markUsed(USER_ID) } returns Unit
         every { tokenClient.fetchSession(any(), any(), any()) } answers {
             token(arg(0), arg(1), arg(2))
