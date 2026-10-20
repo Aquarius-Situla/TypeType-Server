@@ -19,9 +19,11 @@ class AuthenticatedSabrInfoService(
     private val visitorDataFetcher: () -> String = AuthenticatedYoutubeVisitorData::fetch,
     private val probe: AuthenticatedSabrProbe = PipePipeAuthenticatedSabrProbe,
     private val cache: AuthenticatedSabrInfoCache = AuthenticatedSabrInfoCache(),
+    private val tvClient: YoutubeTvOauthPlayerClient = YoutubeTvOauthPlayerClient(),
 ) {
     suspend fun fetch(userId: String?, videoId: String): AuthenticatedSabrInfoResult {
         if (userId == null || userId.startsWith("guest:")) return AuthenticatedSabrInfoResult.NotConnected
+        if (youtubeSessionService.isOauthSession(userId)) return fetchOauth(userId, videoId)
         val credentials = youtubeSessionService.connectedCredentials(userId)
             ?: return AuthenticatedSabrInfoResult.NotConnected
         return try {
@@ -29,6 +31,30 @@ class AuthenticatedSabrInfoService(
         } catch (error: TimeoutCancellationException) {
             logger.warn("authenticated_sabr_probe event=timeout videoId={}", videoId)
             AuthenticatedSabrInfoResult.TimedOut
+        }
+    }
+
+    private suspend fun fetchOauth(userId: String, videoId: String): AuthenticatedSabrInfoResult {
+        val accessToken = youtubeSessionService.oauthAccessToken(userId)
+            ?: return AuthenticatedSabrInfoResult.NotConnected
+        return try {
+            val player = tvClient.player(videoId, accessToken)
+                ?: return AuthenticatedSabrInfoResult.Failed
+            val info = SabrAdapter.fromPlayerResponse(
+                videoId,
+                YoutubeSabrClientProfile.TVHTML5,
+                player.cpn,
+                player.response,
+            )
+            val prepared = SabrPreparedInfo(info, null, source = SabrPreparedSource.AUTHENTICATED_YOUTUBE)
+            if (!prepared.hasAudioAndVideoFormats()) return AuthenticatedSabrInfoResult.Failed
+            youtubeSessionService.markUsed(userId)
+            AuthenticatedSabrInfoResult.Ready(prepared)
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: Exception) {
+            logger.warn("oauth_sabr_probe event=failed videoId={} errorType={}", videoId, error::class.simpleName)
+            AuthenticatedSabrInfoResult.Failed
         }
     }
 

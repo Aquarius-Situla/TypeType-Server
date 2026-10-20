@@ -23,9 +23,10 @@ class YoutubeTvOauthPlayerClient(
     private var signatureTimestamp: Pair<Long, Long>? = null
     private var clientVersion: String = DEFAULT_CLIENT_VERSION
 
-    suspend fun player(videoId: String, accessToken: String): JsonObject? = withContext(Dispatchers.IO) {
+    suspend fun player(videoId: String, accessToken: String): TvPlayerResponse? = withContext(Dispatchers.IO) {
         try {
             val timestamp = signatureTimestamp() ?: return@withContext null
+            val cpn = YoutubeParsingHelper.generateContentPlaybackNonce()
             val body = JsonObject.builder()
                 .`object`("context")
                 .`object`("client")
@@ -50,7 +51,7 @@ class YoutubeTvOauthPlayerClient(
                 .end()
                 .end()
                 .value("videoId", videoId)
-                .value("cpn", YoutubeParsingHelper.generateContentPlaybackNonce())
+                .value("cpn", cpn)
                 .value("racyCheckOk", true)
                 .value("contentCheckOk", true)
                 .done()
@@ -70,7 +71,11 @@ class YoutubeTvOauthPlayerClient(
             client.newCall(request).execute().use { response ->
                 if (!response.isSuccessful) return@use null
                 val text = response.body?.string().orEmpty()
-                if (text.isBlank()) null else JsonParser.`object`().from(text)
+                if (text.isBlank()) {
+                    null
+                } else {
+                    TvPlayerResponse(cpn, JsonParser.`object`().from(text))
+                }
             }
         } catch (cancelled: CancellationException) {
             throw cancelled
@@ -117,3 +122,8 @@ class YoutubeTvOauthPlayerClient(
         val TV_VERSION_REGEX = Regex(""""INNERTUBE_CLIENT_VERSION":"([^"]+)"""")
     }
 }
+
+data class TvPlayerResponse(
+    val cpn: String,
+    val response: JsonObject,
+)

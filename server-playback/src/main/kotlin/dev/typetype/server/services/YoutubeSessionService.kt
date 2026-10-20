@@ -66,6 +66,11 @@ class YoutubeSessionService(
         return refreshed.accessToken
     }
 
+    suspend fun isOauthSession(userId: String): Boolean {
+        val current = store.status(userId)
+        return current.authType == "oauth_device" && current.status == "connected"
+    }
+
     suspend fun disconnectOauth(userId: String) {
         val key = crypto
         val session = store.oauthEncrypted(userId)
