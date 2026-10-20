@@ -52,6 +52,22 @@ object SabrPumpLogger {
         )
     }
 
+    fun protectedNoMedia(holder: SabrSessionHolder, error: SabrProtectedNoMediaException): Unit {
+        logger.warn(
+            "sabr_pump event=protected_no_media videoId={} state={} requestNumber={} responseNumber={} httpStatus={} segments=0 protection={}/{} backoffMs={} reload={} responses={}",
+            holder.key.videoId,
+            holder.playbackState(),
+            holder.session.requestNumber,
+            error.responseNumber,
+            error.details.httpStatus,
+            error.details.protectionStatus,
+            error.details.maxRetries,
+            error.details.backoffMs,
+            error.details.reloadRequested,
+            error.responsesObserved,
+        )
+    }
+
     fun expired(
         holder: SabrSessionHolder,
         request: SabrSegmentRequest,
