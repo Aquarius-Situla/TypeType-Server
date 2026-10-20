@@ -13,7 +13,7 @@ dependencies {
     implementation(project(":server-token-gateway"))
     implementation(project(":server-downloader"))
     implementation("com.github.TeamNewPipe:nanojson:1d9e1aea9049fc9f85e68b43ba39fe7be1c1f751")
-    implementation("com.github.TypeType-Video.PipePipeExtractor:extractor:e314015d345a93eaa243a866be2ad4f5d91df14f")
+    implementation("com.github.TypeType-Video.PipePipeExtractor:extractor:f245ce8d")
     implementation("io.ktor:ktor-server-core-jvm:3.6.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.11.0")
     implementation("com.squareup.okhttp3:okhttp:5.5.0")
