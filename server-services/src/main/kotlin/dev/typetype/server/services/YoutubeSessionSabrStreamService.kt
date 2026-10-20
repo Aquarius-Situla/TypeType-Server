@@ -14,18 +14,20 @@ class YoutubeSessionSabrStreamService(
     private val timeoutMs: Long = AuthenticatedSabrPolicy.STREAM_TIMEOUT_MS,
 ) {
     suspend fun getStreamInfo(userId: String, url: String): ExtractionResult<StreamResponse>? {
-        youtubeVideoId(url)?.let { videoId ->
-            infoService.oauthStream(userId, videoId)?.let { return it }
-        }
         return try {
             withTimeout(timeoutMs) {
-                val metadata = metadataService.getStreamInfo(userId, url) ?: return@withTimeout null
-                if (metadata !is ExtractionResult.Success) return@withTimeout metadata
-                if (metadata.data.isLive) return@withTimeout null
+                val metadata = metadataService.getStreamInfo(userId, url)
+                if (metadata != null && metadata !is ExtractionResult.Success) {
+                    return@withTimeout metadata
+                }
+                val data = (metadata as? ExtractionResult.Success)?.data
+                if (data?.isLive == true) return@withTimeout null
                 val videoId = youtubeVideoId(url) ?: return@withTimeout ExtractionResult.BadRequest("Invalid YouTube URL")
+                infoService.oauthStream(userId, videoId)?.let { return@withTimeout it }
+                if (data == null) return@withTimeout null
                 when (val info = infoService.fetch(userId, videoId)) {
                     is AuthenticatedSabrInfoResult.Ready ->
-                        ExtractionResult.Success(metadata.data.withSabrFallback(videoId, info.prepared.info))
+                        ExtractionResult.Success(data.withSabrFallback(videoId, info.prepared.info))
                     AuthenticatedSabrInfoResult.Failed ->
                         ExtractionResult.Failure("Authenticated SABR playback unavailable")
                     AuthenticatedSabrInfoResult.TimedOut ->
