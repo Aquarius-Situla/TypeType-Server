@@ -18,11 +18,11 @@ import org.slf4j.LoggerFactory
 class AuthenticatedSabrInfoService(
     private val youtubeSessionService: YoutubeSessionService,
     private val tokenClient: TypetypeTokenSabrTokenClient,
-    private val bindingClient: TypetypeTokenYoutubeSessionClient? = null,
     private val visitorDataFetcher: () -> String = AuthenticatedYoutubeVisitorData::fetch,
     private val probe: AuthenticatedSabrProbe = PipePipeAuthenticatedSabrProbe,
     private val cache: AuthenticatedSabrInfoCache = AuthenticatedSabrInfoCache(),
     private val tvClient: YoutubeTvOauthPlayerClient = YoutubeTvOauthPlayerClient(),
+    private val bindingClient: TypetypeTokenYoutubeSessionClient? = null,
 ) {
     suspend fun fetch(userId: String?, videoId: String): AuthenticatedSabrInfoResult {
         if (userId == null || userId.startsWith("guest:")) return AuthenticatedSabrInfoResult.NotConnected
