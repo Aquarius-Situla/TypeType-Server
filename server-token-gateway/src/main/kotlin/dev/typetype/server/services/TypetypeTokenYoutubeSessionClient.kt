@@ -94,6 +94,30 @@ class TypetypeTokenYoutubeSessionClient(
         deviceCall("/device/revoke", token, "token")
     }
 
+    suspend fun fetchTvPoToken(): TokenTvPoToken? = withContext(Dispatchers.IO) {
+        val request = Request.Builder()
+            .url("${tokenServiceUrl.trimEnd('/')}/tv-token")
+            .get()
+            .build()
+        try {
+            client.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) return@use null
+                val payload = JSONObject(response.body?.string().orEmpty())
+                TokenTvPoToken(
+                    poToken = payload.optString("poToken"),
+                    visitorData = payload.optString("visitorData"),
+                    livingRoomPoTokenId = payload.optString("livingRoomPoTokenId"),
+                ).takeIf {
+                    it.poToken.isNotBlank() &&
+                        it.visitorData.isNotBlank() &&
+                        it.livingRoomPoTokenId.isNotBlank()
+                }
+            }
+        } catch (_: IOException) {
+            null
+        }
+    }
+
     suspend fun cancelDeviceLogin(accountKey: String) {
         deviceCall("/device/cancel", accountKey, "accountKey")
     }
@@ -256,6 +280,12 @@ data class TokenDeviceStart(
 data class TokenDevicePoll(
     val status: String,
     val tokens: TokenDeviceTokens?,
+)
+
+data class TokenTvPoToken(
+    val poToken: String,
+    val visitorData: String,
+    val livingRoomPoTokenId: String,
 )
 
 data class TokenDeviceTokens(

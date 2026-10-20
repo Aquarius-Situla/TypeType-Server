@@ -14,6 +14,9 @@ class YoutubeSessionSabrStreamService(
     private val timeoutMs: Long = AuthenticatedSabrPolicy.STREAM_TIMEOUT_MS,
 ) {
     suspend fun getStreamInfo(userId: String, url: String): ExtractionResult<StreamResponse>? {
+        youtubeVideoId(url)?.let { videoId ->
+            infoService.oauthStream(userId, videoId)?.let { return it }
+        }
         return try {
             withTimeout(timeoutMs) {
                 val metadata = metadataService.getStreamInfo(userId, url) ?: return@withTimeout null

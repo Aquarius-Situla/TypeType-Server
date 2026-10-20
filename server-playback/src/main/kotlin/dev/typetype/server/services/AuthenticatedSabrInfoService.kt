@@ -18,6 +18,7 @@ import org.slf4j.LoggerFactory
 class AuthenticatedSabrInfoService(
     private val youtubeSessionService: YoutubeSessionService,
     private val tokenClient: TypetypeTokenSabrTokenClient,
+    private val bindingClient: TypetypeTokenYoutubeSessionClient? = null,
     private val visitorDataFetcher: () -> String = AuthenticatedYoutubeVisitorData::fetch,
     private val probe: AuthenticatedSabrProbe = PipePipeAuthenticatedSabrProbe,
     private val cache: AuthenticatedSabrInfoCache = AuthenticatedSabrInfoCache(),
@@ -51,17 +52,29 @@ class AuthenticatedSabrInfoService(
             return ExtractionResult.Failure("Authenticated SABR playback unavailable")
         }
         youtubeSessionService.markUsed(userId)
-        return ExtractionResult.Success(player.toStreamResponse(videoId, prepared.prepared.info))
+        return ExtractionResult.Success(player.response.toStreamResponse(videoId, prepared.prepared.info))
     }
 
-    private suspend fun fetchOauthPlayer(userId: String, videoId: String): TvPlayerResponse? {
+    private suspend fun fetchOauthPlayer(userId: String, videoId: String): OauthPlayer? {
         val accessToken = youtubeSessionService.oauthAccessToken(userId)
         if (accessToken == null) {
             logger.warn("oauth_sabr_probe event=no_access_token videoId={}", videoId)
             return null
         }
+        val tv = try {
+            bindingClient?.fetchTvPoToken()
+        } catch (error: Exception) {
+            logger.warn("oauth_sabr_probe event=tv_token_error videoId={}", videoId)
+            null
+        } ?: return null
         return try {
-            tvClient.player(videoId, accessToken).also {
+            tvClient.player(
+                videoId,
+                accessToken,
+                tv.visitorData,
+                tv.livingRoomPoTokenId,
+                tv.poToken,
+            )?.let { OauthPlayer(accessToken, tv, it) }.also {
                 if (it == null) logger.warn("oauth_sabr_probe event=empty_player videoId={}", videoId)
             }
         } catch (error: Exception) {
@@ -77,16 +90,24 @@ class AuthenticatedSabrInfoService(
     private fun prepareOauth(
         userId: String,
         videoId: String,
-        player: TvPlayerResponse,
+        player: OauthPlayer,
     ): AuthenticatedSabrInfoResult {
         return try {
-            val info = SabrAdapter.fromPlayerResponse(
-                videoId,
-                YoutubeSabrClientProfile.TVHTML5,
-                player.cpn,
-                player.response,
+            val info = SabrAdapter.withAuthorization(
+                SabrAdapter.fromPlayerResponse(
+                    videoId,
+                    YoutubeSabrClientProfile.TVHTML5,
+                    player.response.cpn,
+                    player.response.response,
+                    player.tv.visitorData,
+                ),
+                "Bearer ${player.accessToken}",
             )
-            val prepared = SabrPreparedInfo(info, null, source = SabrPreparedSource.AUTHENTICATED_YOUTUBE)
+            val prepared = SabrPreparedInfo(
+                info,
+                SabrTokenBundle.forSession(videoId, player.tv.poToken, player.tv.visitorData),
+                source = SabrPreparedSource.AUTHENTICATED_YOUTUBE,
+            )
             if (!prepared.hasAudioAndVideoFormats()) return AuthenticatedSabrInfoResult.Failed
             AuthenticatedSabrInfoResult.Ready(prepared)
         } catch (error: CancellationException) {
@@ -213,3 +234,9 @@ private object PipePipeAuthenticatedSabrProbe : AuthenticatedSabrProbe {
             token.visitorData,
         )
 }
+
+private data class OauthPlayer(
+    val accessToken: String,
+    val tv: TokenTvPoToken,
+    val response: TvPlayerResponse,
+)

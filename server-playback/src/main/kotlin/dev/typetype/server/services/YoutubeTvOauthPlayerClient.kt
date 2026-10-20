@@ -24,7 +24,13 @@ class YoutubeTvOauthPlayerClient(
     private var signatureTimestamp: Pair<Long, Long>? = null
     private var clientVersion: String = DEFAULT_CLIENT_VERSION
 
-    suspend fun player(videoId: String, accessToken: String): TvPlayerResponse? = withContext(Dispatchers.IO) {
+    suspend fun player(
+        videoId: String,
+        accessToken: String,
+        visitorData: String? = null,
+        livingRoomPoTokenId: String? = null,
+        poToken: String? = null,
+    ): TvPlayerResponse? = withContext(Dispatchers.IO) {
         try {
             val timestamp = signatureTimestamp() ?: return@withContext null
             val cpn = YoutubeParsingHelper.generateContentPlaybackNonce()
@@ -35,6 +41,9 @@ class YoutubeTvOauthPlayerClient(
                 .value("clientVersion", clientVersion)
                 .value("hl", "en")
                 .value("gl", "US")
+                .let { builder ->
+                    if (visitorData.isNullOrBlank()) builder else builder.value("visitorData", visitorData)
+                }
                 .value("deviceMake", "Google")
                 .value("deviceModel", "Chromecast")
                 .value("osName", "Android")
@@ -55,6 +64,16 @@ class YoutubeTvOauthPlayerClient(
                 .value("cpn", cpn)
                 .value("racyCheckOk", true)
                 .value("contentCheckOk", true)
+                .`object`("serviceIntegrityDimensions")
+                .apply {
+                    if (!poToken.isNullOrBlank()) value("poToken", poToken)
+                }
+                .end()
+                .apply {
+                    if (!livingRoomPoTokenId.isNullOrBlank()) {
+                        `object`("tvAppInfo").value("livingRoomPoTokenId", livingRoomPoTokenId).end()
+                    }
+                }
                 .done()
                 .let { JsonWriter.string(it) }
                 .toRequestBody(JSON)
@@ -65,6 +84,9 @@ class YoutubeTvOauthPlayerClient(
                 .header("X-Youtube-Client-Version", clientVersion)
                 .header("Origin", "https://www.youtube.com")
                 .header("Referer", "https://www.youtube.com/")
+                .apply {
+                    if (!visitorData.isNullOrBlank()) header("X-Goog-Visitor-Id", visitorData)
+                }
                 .header("User-Agent", TV_USER_AGENT)
                 .post(body)
                 .build()

@@ -21,6 +21,11 @@ class SabrTokenBundle(
     val streamingPoTokenBytes: ByteArray = videoBoundPoTokenBytes
 
     companion object {
+        fun forSession(videoId: String, poToken: String, visitorData: String): SabrTokenBundle {
+            val bytes = decodeBase64Url(poToken)
+            return SabrTokenBundle(videoId, poToken, bytes, visitorData, poToken, bytes)
+        }
+
         fun fromResponse(videoId: String, json: JSONObject): SabrTokenBundle? = runCatching {
             val visitorBoundPoToken = json.optString("visitorBoundPoToken").ifBlank { json.optString("poToken") }
             val visitorData = json.optString("visitorData")
