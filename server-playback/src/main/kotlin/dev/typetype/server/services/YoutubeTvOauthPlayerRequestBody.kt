@@ -17,22 +17,23 @@ internal fun buildYoutubeTvOauthPlayerBody(
     .`object`("client")
     .value("clientName", clientName)
     .value("clientVersion", clientVersion)
-    .value("hl", "en")
-    .value("gl", "US")
+    .value("clientScreen", "WATCH")
+    .value("userAgent", YOUTUBE_TV_USER_AGENT)
+    .value("acceptLanguage", "en-US")
+    .value("acceptRegion", "US")
+    .value("utcOffsetMinutes", "0")
     .let { builder ->
         if (visitorData.isNullOrBlank()) builder else builder.value("visitorData", visitorData)
     }
-    .value("deviceMake", "Google")
-    .value("deviceModel", "Chromecast")
-    .value("osName", "Android")
-    .value("osVersion", "10")
-    .value("platform", "TV")
-    .value("utcOffsetMinutes", 0)
     .apply {
         if (!livingRoomPoTokenId.isNullOrBlank()) {
             `object`("tvAppInfo").value("livingRoomPoTokenId", livingRoomPoTokenId).end()
         }
     }
+    .end()
+    .`object`("user")
+    .value("enableSafetyMode", false)
+    .value("lockedSafetyMode", false)
     .end()
     .end()
     .`object`("playbackContext")
@@ -41,6 +42,10 @@ internal fun buildYoutubeTvOauthPlayerBody(
     .value("lactMilliseconds", 60_000)
     .value("isInlinePlaybackNoAd", true)
     .value("signatureTimestamp", signatureTimestamp)
+    .end()
+    .`object`("devicePlaybackCapabilities")
+    .value("supportsVp9Encoding", true)
+    .value("supportXhr", false)
     .end()
     .end()
     .value("videoId", videoId)

@@ -12,7 +12,10 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import org.schabi.newpipe.extractor.services.youtube.YoutubeParsingHelper
 
 internal const val YOUTUBE_TV_USER_AGENT =
-    "Mozilla/5.0 (SMART-TV; X11; Linux armv7l) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.85 Safari/537.36"
+    "Mozilla/5.0 (Linux armeabi-v7a; Android 7.1.2; Fire OS 6.0) " +
+        "Cobalt/22.lts.3.306369-gold (unlike Gecko) v8/8.8.278.8-jit gles " +
+        "Starboard/13, Amazon_ATV_mediatek8695_2019/NS6294 " +
+        "(Amazon, AFTMM, Wireless) com.amazon.firetv.youtube/22.3.r2.v66.0"
 
 /**
  * Builds the TV client player request used by the device-code session. The request shape
@@ -52,7 +55,7 @@ class YoutubeTvOauthPlayerClient(
                 .header("X-Youtube-Client-Name", TV_CLIENT_ID)
                 .header("X-Youtube-Client-Version", clientVersion)
                 .header("Origin", "https://www.youtube.com")
-                .header("Referer", "https://www.youtube.com/")
+                .header("Referer", "https://www.youtube.com/tv")
                 .apply {
                     if (!visitorData.isNullOrBlank()) header("X-Goog-Visitor-Id", visitorData)
                 }
@@ -96,7 +99,6 @@ class YoutubeTvOauthPlayerClient(
             YOUTUBE_TV_USER_AGENT,
         ) ?: return null
         val digits = SIGNATURE_REGEX.find(script)?.groupValues?.get(1) ?: return null
-        TV_VERSION_REGEX.find(page)?.groupValues?.get(1)?.let { clientVersion = it }
         return if (digits.length == 5) "${digits}001".toLong() else digits.toLong()
     }
 
@@ -131,7 +133,7 @@ class YoutubeTvOauthPlayerClient(
         const val TV_PAGE_URL = "https://www.youtube.com/tv"
         const val CLIENT_NAME = "TVHTML5"
         const val TV_CLIENT_ID = "7"
-        const val DEFAULT_CLIENT_VERSION = "7.20261014.18.00"
+        const val DEFAULT_CLIENT_VERSION = "7.20260901.15.00"
         const val TIMESTAMP_TTL_MS = 6 * 60 * 60 * 1000L
         const val WEB_USER_AGENT =
             "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0 Safari/537.36"
@@ -141,7 +143,6 @@ class YoutubeTvOauthPlayerClient(
         val PLAYER_URL_REGEX = Regex("""player_url":"([^"]+)"""")
         val WEB_JS_REGEX = Regex(""""jsUrl":"([^"]+)"""")
         val SIGNATURE_REGEX = Regex("""signatureTimestamp:(\d+)""")
-        val TV_VERSION_REGEX = Regex(""""INNERTUBE_CLIENT_VERSION":"([^"]+)"""")
     }
 }
 

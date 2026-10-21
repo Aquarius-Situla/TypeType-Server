@@ -1,5 +1,7 @@
 package dev.typetype.server.services
 
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
+
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.TimeoutCancellationException
@@ -93,17 +95,29 @@ class AuthenticatedSabrInfoService(
         player: OauthPlayer,
     ): AuthenticatedSabrInfoResult {
         return try {
+            val responseVisitorData = player.response.response
+                .getObject("responseContext")
+                ?.getString("visitorData")
+                ?.takeIf(String::isNotBlank)
+                ?: player.tv.visitorData
             val info = SabrAdapter.fromPlayerResponse(
                 videoId,
                 YoutubeSabrClientProfile.TVHTML5,
                 player.response.cpn,
                 player.response.response,
-                player.tv.visitorData,
+                responseVisitorData,
                 player.response.clientVersion,
             )
-            val prepared = SabrPreparedInfo(
+            val infoWithPot = SabrAdapter.withPlaybackIdentity(
                 info,
-                SabrTokenBundle.forSession(videoId, player.tv.poToken, player.tv.visitorData),
+                requireNotNull(info.serverAbrStreamingUrl).withPoToken(player.tv.poToken),
+                player.response.clientVersion,
+                player.response.cpn,
+                responseVisitorData,
+            )
+            val prepared = SabrPreparedInfo(
+                infoWithPot,
+                SabrTokenBundle.forSession(videoId, player.tv.poToken, responseVisitorData),
                 source = SabrPreparedSource.AUTHENTICATED_YOUTUBE,
             )
             if (!prepared.hasAudioAndVideoFormats()) return AuthenticatedSabrInfoResult.Failed
@@ -213,6 +227,13 @@ sealed interface AuthenticatedSabrInfoResult {
     data object TimedOut : AuthenticatedSabrInfoResult
     data class Ready(val prepared: SabrPreparedInfo) : AuthenticatedSabrInfoResult
 }
+
+private fun String.withPoToken(poToken: String): String =
+    requireNotNull(toHttpUrlOrNull()) { "Invalid SABR playback URL" }
+        .newBuilder()
+        .setQueryParameter("pot", poToken)
+        .build()
+        .toString()
 
 fun interface AuthenticatedSabrProbe {
     fun fetch(videoId: String, token: YoutubeSessionPoToken): YoutubeSabrInfo
