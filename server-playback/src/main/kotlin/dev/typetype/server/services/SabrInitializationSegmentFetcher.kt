@@ -12,6 +12,7 @@ internal suspend fun fetchSabrInitializationSegment(
     localization: Localization,
     segmentCache: SabrSegmentCache?,
     markServed: Boolean,
+    unauthorizedRecovery: SabrUnauthorizedResponseRecovery,
 ): SabrMediaSegment? = holder.pumpMutex.withLock {
     holder.session.getCachedSegment(request)?.let { segment ->
         if (markServed) holder.markServed(segment)
@@ -19,11 +20,39 @@ internal suspend fun fetchSabrInitializationSegment(
         return@withLock segment
     }
     if (holder.session.isBeyondEnd(request)) return@withLock null
+    val requestNumber = holder.session.requestNumber
     val result = runCatchingNonCancellation {
         holder.session.prepareForInitialization(request.format)
         holder.withPlayerContext { fetchSegment(request, localization) }
     }
-    result.onFailure { error ->
+    val status = SabrUnauthorizedResponseRecovery.latestUnauthorizedStatus(holder.session.diagnosticTrace)
+    val recovered = if (
+        holder.session.requestNumber > requestNumber &&
+        status != null &&
+        (result.isFailure || result.getOrNull() == null)
+    ) {
+        initFetcherLogger.info(
+            "sabr_init event=unauthorized_retry videoId={} itag={} httpStatus={}",
+            holder.key.videoId,
+            request.format.itag,
+            status,
+        )
+        runCatchingNonCancellation {
+            unauthorizedRecovery.verify(holder)
+            holder.session.prepareForInitialization(request.format)
+            holder.withPlayerContext { fetchSegment(request, localization) }
+        }.also { retry ->
+            initFetcherLogger.info(
+                "sabr_init event=unauthorized_retry_complete videoId={} itag={} result={}",
+                holder.key.videoId,
+                request.format.itag,
+                if (retry.getOrNull() == null) "miss" else "hit",
+            )
+        }
+    } else {
+        result
+    }
+    recovered.onFailure { error ->
         initFetcherLogger.warn(
             "sabr_init_trace videoId={} trace={}",
             holder.key.videoId,
@@ -38,7 +67,7 @@ internal suspend fun fetchSabrInitializationSegment(
             error,
         )
     }
-    result
+    recovered
         .getOrNull()
         ?.also {
             if (markServed) holder.markServed(it)
