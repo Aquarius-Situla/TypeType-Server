@@ -162,6 +162,7 @@ class PushNotificationService(
                         DeliveryWork(eventId, device, PushNotificationSupport.payload(instanceId, eventId, candidate, userId))
                     } else null
                 }
+                queued
             }.flatten()
         }
         work.forEach { delivery -> deliver(delivery) }
