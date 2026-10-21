@@ -9,8 +9,11 @@ import org.junit.jupiter.api.Test
 
 class YoutubeTvOauthPlayerRequestBodyTest {
     @Test
-    fun `TV player and SABR profiles use the same user agent`() {
-        assertEquals(YOUTUBE_TV_USER_AGENT, YoutubeSabrClientProfile.TVHTML5.userAgent)
+    fun `TV player and SABR profiles match the Token TV poToken user agent`() {
+        val tokenMintingUserAgent =
+            "Mozilla/5.0 (SMART-TV; X11; Linux armv7l) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.85 Safari/537.36"
+        assertEquals(tokenMintingUserAgent, YOUTUBE_TV_USER_AGENT)
+        assertEquals(tokenMintingUserAgent, YoutubeSabrClientProfile.TVHTML5.userAgent)
     }
 
     @Test
