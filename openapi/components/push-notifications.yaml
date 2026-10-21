@@ -17,6 +17,14 @@ PushDeviceRegistrationResponse:
     platform: { type: string, enum: [android] }
     expiresAt: { type: integer, format: int64, nullable: true }
     updatedAt: { type: integer, format: int64 }
+PushDeliveryAcknowledgementRequest:
+  type: object
+  required: [eventId, deviceId, outcome]
+  properties:
+    eventId: { type: string, pattern: '^[a-f0-9]{64}$' }
+    deviceId: { type: string, minLength: 1, maxLength: 128 }
+    outcome: { type: string, enum: [posted, suppressed, failed] }
+    reasonCode: { type: string, nullable: true, pattern: '^[a-z_]{1,64}$' }
 ChannelNotificationPreferenceRequest:
   type: object
   required: [channelUrl, enabled]

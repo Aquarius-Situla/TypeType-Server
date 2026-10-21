@@ -3,6 +3,8 @@ package dev.typetype.server.routes
 import dev.typetype.server.models.ChannelNotificationPreferenceRequest
 import dev.typetype.server.models.ErrorResponse
 import dev.typetype.server.models.PushDeviceRegistrationRequest
+import dev.typetype.server.models.PushDeliveryAcknowledgementRequest
+import dev.typetype.server.services.PushDeliveryAcknowledgementResult
 import dev.typetype.server.services.DeviceRegistrationResult
 import dev.typetype.server.services.PreferenceUpdateResult
 import dev.typetype.server.services.PushNotificationService
@@ -77,6 +79,31 @@ internal fun Route.pushNotificationRoutes(
                 DeviceRegistrationResult.LimitReached -> call.respond(
                     HttpStatusCode.Conflict,
                     ErrorResponse("Push device limit reached", "push_device_limit_reached"),
+                )
+            }
+        }
+    }
+    post("/notifications/push/deliveries/acknowledgement") {
+        call.withJwtAuth(authService) { userId ->
+            val request = runCatching { call.receive<PushDeliveryAcknowledgementRequest>() }.getOrNull()
+                ?: return@withJwtAuth call.respond(
+                    HttpStatusCode.BadRequest,
+                    ErrorResponse("Invalid push delivery acknowledgement", "push_request_invalid"),
+                )
+            when (service.acknowledgeDelivery(userId, request)) {
+                PushDeliveryAcknowledgementResult.Recorded,
+                PushDeliveryAcknowledgementResult.AlreadyRecorded -> call.respond(HttpStatusCode.NoContent)
+                PushDeliveryAcknowledgementResult.InvalidRequest -> call.respond(
+                    HttpStatusCode.BadRequest,
+                    ErrorResponse("Invalid push delivery acknowledgement", "push_request_invalid"),
+                )
+                PushDeliveryAcknowledgementResult.NotFound -> call.respond(
+                    HttpStatusCode.NotFound,
+                    ErrorResponse("Push delivery not found", "push_delivery_not_found"),
+                )
+                PushDeliveryAcknowledgementResult.Conflict -> call.respond(
+                    HttpStatusCode.Conflict,
+                    ErrorResponse("Push delivery acknowledgement is invalid", "push_acknowledgement_conflict"),
                 )
             }
         }

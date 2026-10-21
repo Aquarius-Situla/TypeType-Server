@@ -83,3 +83,20 @@ PushDevice:
       '204': { description: Device unregistered. }
       '401': { $ref: ../components/common.yaml#/JsonError }
       '404': { $ref: ../components/common.yaml#/JsonError }
+
+PushDeliveryAcknowledgement:
+  post:
+    tags: [user-data]
+    summary: Report whether Android displayed a push notification
+    security: [{ bearerAuth: [] }]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: { $ref: ../components/push-notifications.yaml#/PushDeliveryAcknowledgementRequest }
+    responses:
+      '204': { description: Delivery outcome recorded. }
+      '400': { $ref: ../components/common.yaml#/JsonError }
+      '401': { $ref: ../components/common.yaml#/JsonError }
+      '404': { $ref: ../components/common.yaml#/JsonError }
+      '409': { $ref: ../components/common.yaml#/JsonError }
