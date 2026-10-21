@@ -5,6 +5,7 @@ import dev.typetype.server.db.tables.PushNotificationBaselinesTable
 import dev.typetype.server.db.tables.PushNotificationEventsTable
 import dev.typetype.server.models.ChannelNotificationPreference
 import dev.typetype.server.models.PushDeviceRegistrationRequest
+import dev.typetype.server.models.PushDeliveryAcknowledgementRequest
 import dev.typetype.server.models.PushNotificationCapability
 import dev.typetype.server.models.VideoItem
 import kotlinx.coroutines.CancellationException
@@ -39,6 +40,42 @@ class PushNotificationService(
 
     suspend fun unregisterDevice(userId: String, deviceId: String): Boolean =
         deviceRegistry.unregister(userId, deviceId)
+
+    suspend fun acknowledgeDelivery(
+        userId: String,
+        request: PushDeliveryAcknowledgementRequest,
+    ): PushDeliveryAcknowledgementResult {
+        if (!EVENT_ID.matches(request.eventId) || !DEVICE_ID.matches(request.deviceId) ||
+            request.outcome !in CLIENT_OUTCOMES ||
+            request.reasonCode?.let { !REASON_CODE.matches(it) } == true
+        ) return PushDeliveryAcknowledgementResult.InvalidRequest
+        return deliveryStore.acknowledge(
+            eventId = request.eventId,
+            userId = userId,
+            deviceId = request.deviceId,
+            outcome = request.outcome,
+            reasonCode = request.reasonCode,
+        ).also { result ->
+            when (result) {
+                PushDeliveryAcknowledgementResult.Recorded,
+                PushDeliveryAcknowledgementResult.AlreadyRecorded -> logger.info(
+                    "push_notifications event=client_acknowledged trace={} outcome={} reason={}",
+                    traceId(request.eventId),
+                    request.outcome,
+                    request.reasonCode ?: "none",
+                )
+                PushDeliveryAcknowledgementResult.NotFound -> logger.warn(
+                    "push_notifications event=client_ack_rejected trace={} reason=delivery_not_found",
+                    traceId(request.eventId),
+                )
+                PushDeliveryAcknowledgementResult.Conflict -> logger.warn(
+                    "push_notifications event=client_ack_rejected trace={} reason=status_conflict",
+                    traceId(request.eventId),
+                )
+                PushDeliveryAcknowledgementResult.InvalidRequest -> Unit
+            }
+        }
+    }
 
     suspend fun listPreferences(userId: String): List<ChannelNotificationPreference> =
         preferenceService.list(userId)
@@ -120,8 +157,8 @@ class PushNotificationService(
                     it[PushNotificationEventsTable.publishedAt] = candidate.publishedAt
                     it[PushNotificationEventsTable.createdAt] = clock()
                 }
-                devices.mapNotNull { device ->
-                    if (deliveryStore.claim(eventId, userId, device.id, isNew, clock())) {
+                val queued = devices.mapNotNull { device ->
+                    if (deliveryStore.claim(eventId, userId, device.deviceId, isNew, clock())) {
                         DeliveryWork(eventId, device, PushNotificationSupport.payload(instanceId, eventId, candidate, userId))
                     } else null
                 }
@@ -132,7 +169,10 @@ class PushNotificationService(
 
     private suspend fun deliver(work: DeliveryWork) {
         when (val result = sender.send(work.device.endpoint, work.eventId, work.payload, work.device.p256dh, work.device.auth)) {
-            PushSendResult.Delivered -> deliveryStore.update(work, PushNotificationDeliveryStatus.DELIVERED, null)
+            PushSendResult.Delivered -> {
+                deliveryStore.update(work, PushNotificationDeliveryStatus.AWAITING_ACK, null)
+                logger.info("push_notifications event=distributor_accepted trace={}", traceId(work.eventId))
+            }
             PushSendResult.InvalidEndpoint -> {
                 deviceRegistry.removeById(work.device.id)
                 deliveryStore.update(work, PushNotificationDeliveryStatus.INVALID, "endpoint_invalid")
@@ -151,8 +191,14 @@ class PushNotificationService(
 
     private fun userKey(userId: String): String = userId.take(8)
 
+    private fun traceId(eventId: String): String = eventId.take(16)
+
     private companion object {
         const val EVENT_TYPE_NEW_VIDEO = "subscription_new_video"
+        val EVENT_ID = Regex("[a-f0-9]{64}")
+        val DEVICE_ID = Regex("[A-Za-z0-9._:-]{1,128}")
+        val CLIENT_OUTCOMES = setOf("posted", "suppressed", "failed")
+        val REASON_CODE = Regex("[a-z_]{1,64}")
         val logger = org.slf4j.LoggerFactory.getLogger(PushNotificationService::class.java)
     }
 }
