@@ -61,7 +61,10 @@ internal suspend fun resolveStreamInfo(
         val authenticatedLive = (authenticatedResult as? ExtractionResult.Success)?.data?.isLive == true
         val publicLive = (publicResult as? ExtractionResult.Success)?.data?.isLive == true
         if (!authenticatedLive || !publicLive) {
-            return StreamResolution(authenticatedResult, authenticated = true)
+            return StreamResolution(
+                authenticatedResult.withPublicUploaderMetadata(publicResult),
+                authenticated = true,
+            )
         }
     }
     return if (publicResult.requiresYoutubeSession()) {
@@ -71,6 +74,24 @@ internal suspend fun resolveStreamInfo(
     } else {
         StreamResolution(publicResult)
     }
+}
+
+internal fun ExtractionResult<StreamResponse>.withPublicUploaderMetadata(
+    fallback: ExtractionResult<StreamResponse>,
+): ExtractionResult<StreamResponse> {
+    val primary = this as? ExtractionResult.Success<StreamResponse> ?: return this
+    val metadata = (fallback as? ExtractionResult.Success<StreamResponse>)?.data ?: return this
+    return primary.copy(
+        data = primary.data.copy(
+            uploaderName = primary.data.uploaderName.ifBlank { metadata.uploaderName },
+            uploaderUrl = primary.data.uploaderUrl.ifBlank { metadata.uploaderUrl },
+            uploaderAvatarUrl = primary.data.uploaderAvatarUrl.ifBlank { metadata.uploaderAvatarUrl },
+            uploaderSubscriberCount = primary.data.uploaderSubscriberCount
+                .takeIf { it >= 0 }
+                ?: metadata.uploaderSubscriberCount,
+            uploaderVerified = primary.data.uploaderVerified || metadata.uploaderVerified,
+        ),
+    )
 }
 
 internal fun StreamResponse.hasPlayableSource(): Boolean =

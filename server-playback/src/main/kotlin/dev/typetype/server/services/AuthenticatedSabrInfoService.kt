@@ -178,7 +178,7 @@ private fun TvPlayerResponse.toStreamResponse(
     return StreamResponse(
         id = videoId,
         title = details.getString("title", ""),
-        uploaderName = details.getString("author", ""),
+        uploaderName = response.youtubeTvUploaderName(),
         uploaderUrl = details.getString("channelId", "")
             .takeIf { it.isNotBlank() }
             ?.let { "https://www.youtube.com/channel/$it" }
