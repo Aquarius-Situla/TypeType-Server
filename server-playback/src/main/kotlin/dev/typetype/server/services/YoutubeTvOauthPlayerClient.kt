@@ -11,6 +11,9 @@ import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.schabi.newpipe.extractor.services.youtube.YoutubeParsingHelper
 
+internal const val YOUTUBE_TV_USER_AGENT =
+    "Mozilla/5.0 (SMART-TV; X11; Linux armv7l) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.85 Safari/537.36"
+
 /**
  * Builds the TV client player request used by the device-code session. The request shape
  * follows the TV client verified against YouTube: an 8-digit signature timestamp is
@@ -53,7 +56,7 @@ class YoutubeTvOauthPlayerClient(
                 .apply {
                     if (!visitorData.isNullOrBlank()) header("X-Goog-Visitor-Id", visitorData)
                 }
-                .header("User-Agent", TV_USER_AGENT)
+                .header("User-Agent", YOUTUBE_TV_USER_AGENT)
                 .post(body)
                 .build()
             client.newCall(request).execute().use { response ->
@@ -86,11 +89,11 @@ class YoutubeTvOauthPlayerClient(
     }
 
     private fun tvSignature(now: Long): Long? {
-        val page = fetchText(TV_PAGE_URL, TV_USER_AGENT) ?: return null
+        val page = fetchText(TV_PAGE_URL, YOUTUBE_TV_USER_AGENT) ?: return null
         val playerUrl = PLAYER_URL_REGEX.find(page)?.groupValues?.get(1)?.replace("\\/", "/") ?: return null
         val script = fetchText(
             if (playerUrl.startsWith("/")) "https://www.youtube.com$playerUrl" else playerUrl,
-            TV_USER_AGENT,
+            YOUTUBE_TV_USER_AGENT,
         ) ?: return null
         val digits = SIGNATURE_REGEX.find(script)?.groupValues?.get(1) ?: return null
         TV_VERSION_REGEX.find(page)?.groupValues?.get(1)?.let { clientVersion = it }
@@ -130,8 +133,6 @@ class YoutubeTvOauthPlayerClient(
         const val TV_CLIENT_ID = "7"
         const val DEFAULT_CLIENT_VERSION = "7.20261014.18.00"
         const val TIMESTAMP_TTL_MS = 6 * 60 * 60 * 1000L
-        const val TV_USER_AGENT =
-            "Mozilla/5.0 (SMART-TV; X11; Linux armv7l) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.85 Safari/537.36"
         const val WEB_USER_AGENT =
             "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0 Safari/537.36"
         const val WATCH_PROBE_URL =

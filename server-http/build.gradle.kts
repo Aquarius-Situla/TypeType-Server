@@ -26,7 +26,7 @@ dependencies {
     implementation("io.ktor:ktor-utils-jvm:3.6.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.11.0")
     implementation("com.github.TeamNewPipe:nanojson:1d9e1aea9049fc9f85e68b43ba39fe7be1c1f751")
-    implementation("com.github.TypeType-Video.PipePipeExtractor:extractor:02650793")
+    implementation("com.github.TypeType-Video.PipePipeExtractor:extractor:94fa7937")
     implementation("com.fasterxml.jackson.core:jackson-core:2.22.3")
     implementation("com.squareup.okhttp3:okhttp:5.5.0")
     testImplementation("io.ktor:ktor-server-test-host-jvm:3.6.0")

@@ -2,11 +2,17 @@ package dev.typetype.server.services
 
 import com.grack.nanojson.JsonObject
 import com.grack.nanojson.JsonParser
+import dev.typetype.server.sabr.YoutubeSabrClientProfile
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Test
 
 class YoutubeTvOauthPlayerRequestBodyTest {
+    @Test
+    fun `TV player and SABR profiles use the same user agent`() {
+        assertEquals(YOUTUBE_TV_USER_AGENT, YoutubeSabrClientProfile.TVHTML5.userAgent)
+    }
+
     @Test
     fun `includes TV PO token and living room id`() {
         val request = playerRequest(poToken = "tv-session-token")
