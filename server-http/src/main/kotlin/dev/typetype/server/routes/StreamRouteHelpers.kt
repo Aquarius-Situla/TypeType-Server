@@ -7,6 +7,7 @@ import dev.typetype.server.services.ProviderMediaType
 import dev.typetype.server.services.YOUTUBE_SESSION_REQUIRED_CODE
 import dev.typetype.server.services.YOUTUBE_SESSION_REQUIRED_ERROR
 import dev.typetype.server.services.requiresYoutubeSession
+import dev.typetype.server.services.YoutubeTypeTypeMapper
 
 private const val STREAMS_CACHE_CONTROL = "public, max-age=21600, stale-while-revalidate=3600"
 private const val AUTHENTICATED_STREAMS_CACHE_CONTROL = "no-store"
@@ -62,7 +63,7 @@ internal suspend fun resolveStreamInfo(
         val publicLive = (publicResult as? ExtractionResult.Success)?.data?.isLive == true
         if (!authenticatedLive || !publicLive) {
             return StreamResolution(
-                authenticatedResult.withPublicUploaderMetadata(publicResult),
+                authenticatedResult.withPublicStreamMetadata(publicResult),
                 authenticated = true,
             )
         }
@@ -76,13 +77,19 @@ internal suspend fun resolveStreamInfo(
     }
 }
 
-internal fun ExtractionResult<StreamResponse>.withPublicUploaderMetadata(
+internal fun ExtractionResult<StreamResponse>.withPublicStreamMetadata(
     fallback: ExtractionResult<StreamResponse>,
 ): ExtractionResult<StreamResponse> {
     val primary = this as? ExtractionResult.Success<StreamResponse> ?: return this
     val metadata = (fallback as? ExtractionResult.Success<StreamResponse>)?.data ?: return this
+    val title = if (primary.data.hasFallbackYoutubeTitle() && !metadata.hasFallbackYoutubeTitle()) {
+        metadata.title
+    } else {
+        primary.data.title
+    }
     return primary.copy(
         data = primary.data.copy(
+            title = title,
             uploaderName = primary.data.uploaderName.ifBlank { metadata.uploaderName },
             uploaderUrl = primary.data.uploaderUrl.ifBlank { metadata.uploaderUrl },
             uploaderAvatarUrl = primary.data.uploaderAvatarUrl.ifBlank { metadata.uploaderAvatarUrl },
@@ -93,6 +100,9 @@ internal fun ExtractionResult<StreamResponse>.withPublicUploaderMetadata(
         ),
     )
 }
+
+private fun StreamResponse.hasFallbackYoutubeTitle(): Boolean =
+    title.isBlank() || title == YoutubeTypeTypeMapper.titleForUrl(id)
 
 internal fun StreamResponse.hasPlayableSource(): Boolean =
     videoStreams.isNotEmpty() ||
