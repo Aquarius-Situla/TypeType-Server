@@ -23,6 +23,7 @@ class AuthenticatedSabrInfoServiceTest {
         val probe = mockk<AuthenticatedSabrProbe>()
         val token = sessionToken()
         val info = playableInfo()
+        coEvery { sessions.isOauthSession(USER_ID) } returns false
         coEvery { sessions.connectedCredentials(USER_ID) } returns credentials(USER_ID)
         coEvery { sessions.markUsed(USER_ID) } returns Unit
         every { tokenClient.fetchSession(VIDEO_ID, SESSION_BINDING, false) } returns token
@@ -52,6 +53,7 @@ class AuthenticatedSabrInfoServiceTest {
         val sessions = mockk<YoutubeSessionService>()
         val tokenClient = mockk<TypetypeTokenSabrTokenClient>()
         val probe = mockk<AuthenticatedSabrProbe>()
+        coEvery { sessions.isOauthSession(USER_ID) } returns false
         coEvery { sessions.connectedCredentials(USER_ID) } returns credentials(USER_ID)
         coEvery { sessions.markUsed(USER_ID) } returns Unit
         every { tokenClient.fetchSession(VIDEO_ID, SESSION_BINDING, false) } returns sessionToken()
@@ -89,6 +91,7 @@ class AuthenticatedSabrInfoServiceTest {
     fun `authenticated probe failure is typed and does not mark session used`() = runBlocking {
         val sessions = mockk<YoutubeSessionService>()
         val tokenClient = mockk<TypetypeTokenSabrTokenClient>()
+        coEvery { sessions.isOauthSession(USER_ID) } returns false
         coEvery { sessions.connectedCredentials(USER_ID) } returns credentials(USER_ID)
         every { tokenClient.fetchSession(VIDEO_ID, SESSION_BINDING, false) } returns null
         val service = AuthenticatedSabrInfoService(
@@ -108,6 +111,7 @@ class AuthenticatedSabrInfoServiceTest {
         val sessions = mockk<YoutubeSessionService>()
         val tokenClient = mockk<TypetypeTokenSabrTokenClient>()
         val probe = mockk<AuthenticatedSabrProbe>()
+        coEvery { sessions.isOauthSession(USER_ID) } returns false
         coEvery { sessions.connectedCredentials(USER_ID) } returns credentials(USER_ID)
         every { tokenClient.fetchSession(VIDEO_ID, SESSION_BINDING, false) } returns sessionToken()
         every { probe.fetch(VIDEO_ID, any()) } throws CancellationException("cancelled")

@@ -11,6 +11,9 @@ enum class YoutubeSabrClientProfile(internal val delegate: PipeProfile) {
     IOS(PipeProfile.IOS),
     TVHTML5(PipeProfile.TVHTML5);
 
+    val userAgent: String?
+        get() = delegate.userAgent
+
     companion object {
         internal fun fromDelegate(profile: PipeProfile): YoutubeSabrClientProfile =
             entries.first { it.delegate == profile }

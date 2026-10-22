@@ -44,6 +44,24 @@ object SabrAdapter {
         YoutubeSabrProbe.fromPlayerResponse(videoId, profile.delegate, cpn, response),
     )
 
+    fun fromPlayerResponse(
+        videoId: String,
+        profile: YoutubeSabrClientProfile,
+        cpn: String,
+        response: JsonObject,
+        visitorData: String?,
+        clientVersion: String,
+    ): YoutubeSabrInfo = YoutubeSabrInfo(
+        YoutubeSabrProbe.fromPlayerResponse(
+            videoId,
+            profile.delegate,
+            cpn,
+            response,
+            visitorData,
+            clientVersion,
+        ),
+    )
+
     fun withPlaybackIdentity(
         info: YoutubeSabrInfo,
         playbackUrl: String,

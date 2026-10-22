@@ -24,7 +24,7 @@ data class YoutubeRemoteBrowserConfig(
         fun fromEnvironment(tokenServiceUrl: String): YoutubeRemoteBrowserConfig =
             YoutubeRemoteBrowserConfig(
                 serviceUrl = envText("YOUTUBE_REMOTE_LOGIN_SERVICE_URL") ?: tokenServiceUrl,
-                callbackBaseUrl = envText("YOUTUBE_REMOTE_LOGIN_CALLBACK_BASE_URL") ?: "http://localhost:8080",
+                callbackBaseUrl = callbackBaseUrl(System::getenv),
                 internalToken = SecretConfigReader.read("YOUTUBE_REMOTE_LOGIN_INTERNAL_TOKEN"),
                 ttlMs = envLong("YOUTUBE_REMOTE_LOGIN_TTL_MS", DEFAULT_TTL_MS).coerceIn(60_000L, 10 * 60_000L),
                 maxGlobalSessions = envInt("YOUTUBE_REMOTE_LOGIN_MAX_SESSIONS", DEFAULT_MAX_GLOBAL_SESSIONS).coerceIn(1, 8),
@@ -32,6 +32,14 @@ data class YoutubeRemoteBrowserConfig(
                 maxInputBytes = envInt("YOUTUBE_REMOTE_LOGIN_MAX_INPUT_BYTES", DEFAULT_MAX_INPUT_BYTES).coerceIn(512, 16 * 1024),
                 outboundQueueSize = envInt("YOUTUBE_REMOTE_LOGIN_OUTBOUND_QUEUE_SIZE", DEFAULT_OUTBOUND_QUEUE_SIZE).coerceIn(1, 8),
             )
+
+        internal fun callbackBaseUrl(environment: (String) -> String?): String =
+            environment("YOUTUBE_REMOTE_LOGIN_CALLBACK_BASE_URL")
+                ?.trim()
+                ?.takeIf { it.isNotEmpty() }
+                ?: DEFAULT_CALLBACK_BASE_URL
+
+        private const val DEFAULT_CALLBACK_BASE_URL = "http://typetype-server:8080"
 
         private fun envText(name: String): String? =
             System.getenv(name)?.trim()?.takeIf { it.isNotEmpty() }

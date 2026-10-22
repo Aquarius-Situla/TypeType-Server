@@ -59,7 +59,9 @@ import dev.typetype.server.services.YoutubeScopedSuggestionService
 import dev.typetype.server.services.YoutubeScopedTrendingService
 import dev.typetype.server.services.YoutubeSessionCrypto
 import dev.typetype.server.services.YoutubeSessionHlsManifestService
+import dev.typetype.server.services.YoutubeSessionRefreshService
 import dev.typetype.server.services.YoutubeSessionService
+import dev.typetype.server.services.YoutubeSessionStore
 import dev.typetype.server.services.YoutubeSessionStreamService
 import dev.typetype.server.services.YoutubeSessionSabrStreamService
 import okhttp3.ConnectionPool
@@ -123,11 +125,22 @@ internal class ExtractionServiceRegistry(
         sabrPipePipeStreamService,
         YoutubePlayerClient.MWEB,
     )
-    val youtubeSessionService = YoutubeSessionService(youtubeSessionSecret?.let(YoutubeSessionCrypto::fromSecret))
+    private val tokenYoutubeSessionClient =
+        TypetypeTokenYoutubeSessionClient(subtitleServiceUrl, httpClient)
+    private val youtubeSessionCrypto = youtubeSessionSecret?.let(YoutubeSessionCrypto::fromSecret)
+    private val youtubeSessionStore = YoutubeSessionStore()
+    val youtubeSessionService =
+        YoutubeSessionService(youtubeSessionCrypto, store = youtubeSessionStore, bindingClient = tokenYoutubeSessionClient)
+    val youtubeSessionRefreshService =
+        YoutubeSessionRefreshService(youtubeSessionCrypto, youtubeSessionStore)
     private val sabrTokenClient = TypetypeTokenSabrTokenClient(subtitleServiceUrl, httpClient)
-    val authenticatedSabrInfoService = AuthenticatedSabrInfoService(youtubeSessionService, sabrTokenClient)
+    val authenticatedSabrInfoService =
+        AuthenticatedSabrInfoService(
+            youtubeSessionService = youtubeSessionService,
+            tokenClient = sabrTokenClient,
+            bindingClient = tokenYoutubeSessionClient,
+        )
     private val hlsTokenService = youtubeSessionSecret?.let(::SignedHlsManifestTokenService)
-    private val tokenYoutubeSessionClient = TypetypeTokenYoutubeSessionClient(subtitleServiceUrl, httpClient)
     private val youtubeSabrFallbackStreamService = SabrFallbackStreamService(
         sabrPublicStreamService,
         sabrSessionStore,

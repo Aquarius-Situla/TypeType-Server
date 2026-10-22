@@ -67,6 +67,7 @@ paths:
   /notifications/channel-preferences: { $ref: ./openapi/paths/push-notifications.yaml#/ChannelNotificationPreferences }
   /notifications/push/devices: { $ref: ./openapi/paths/push-notifications.yaml#/PushDevices }
   /notifications/push/devices/{deviceId}: { $ref: ./openapi/paths/push-notifications.yaml#/PushDevice }
+  /notifications/push/deliveries/acknowledgement: { $ref: ./openapi/paths/push-notifications.yaml#/PushDeliveryAcknowledgement }
   /rss/feeds: { $ref: ./openapi/paths/rss.yaml#/RssFeeds }
   /rss/feeds/{id}: { $ref: ./openapi/paths/rss.yaml#/RssFeed }
   /rss/feeds/{id}/enabled: { $ref: ./openapi/paths/rss.yaml#/RssFeedEnabled }
@@ -215,6 +216,7 @@ components:
     PushNotificationCapability: { $ref: ./openapi/components/instance.yaml#/PushNotificationCapability }
     PushDeviceRegistrationRequest: { $ref: ./openapi/components/push-notifications.yaml#/PushDeviceRegistrationRequest }
     PushDeviceRegistrationResponse: { $ref: ./openapi/components/push-notifications.yaml#/PushDeviceRegistrationResponse }
+    PushDeliveryAcknowledgementRequest: { $ref: ./openapi/components/push-notifications.yaml#/PushDeliveryAcknowledgementRequest }
     ChannelNotificationPreferenceRequest: { $ref: ./openapi/components/push-notifications.yaml#/ChannelNotificationPreferenceRequest }
     ChannelNotificationPreference: { $ref: ./openapi/components/push-notifications.yaml#/ChannelNotificationPreference }
     UnifiedPushNotificationPayload: { $ref: ./openapi/components/push-notifications.yaml#/UnifiedPushNotificationPayload }

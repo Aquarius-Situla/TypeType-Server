@@ -11,8 +11,9 @@ class SabrSessionPump(
     private val segmentCache: SabrSegmentCache? = null,
     refreshPoToken: (SabrSessionHolder) -> SabrTokenBundle? = { null },
 ) {
+    private val unauthorizedRecovery = SabrUnauthorizedResponseRecovery(refreshPoToken)
     private val loop = SabrSessionPumpLoop(
-        unauthorizedRecovery = SabrUnauthorizedResponseRecovery(refreshPoToken),
+        unauthorizedRecovery = unauthorizedRecovery,
         onResolved = { holder, segment -> segmentCache?.put(holder, segment) },
     )
 
@@ -93,9 +94,9 @@ class SabrSessionPump(
         }
         if (holder.session.isBeyondEnd(request) && !holder.isFutureLiveRequest(request)) return null
         val localization = Localization("en", "US")
-        if (request.isInitializationSegment) {
-            return fetchSabrInitializationSegment(holder, request, localization, segmentCache, markServed)
-        }
+        if (request.isInitializationSegment) return fetchSabrInitializationSegment(
+            holder, request, localization, segmentCache, markServed, unauthorizedRecovery,
+        )
         return fetchMediaSegment(holder, request, localization, markServed)
     }
 

@@ -15,7 +15,16 @@ class TypetypeTokenYoutubeJavaScriptDecoder(
     private val client: OkHttpClient = OkHttpClient(),
 ) : YoutubeJavaScriptDecoder {
     override fun getPlayerData(videoId: String): YoutubeJavaScriptDecoder.PlayerData {
-        val json = callDecoder(JSONObject())
+        return getPlayerData(videoId, null)
+    }
+
+    override fun getPlayerData(
+        videoId: String,
+        clientName: String?,
+    ): YoutubeJavaScriptDecoder.PlayerData {
+        val request = JSONObject()
+        clientName?.takeIf(String::isNotBlank)?.let { request.put("clientName", it) }
+        val json = callDecoder(request)
         val playerId = json.optString("playerId")
         val signatureTimestamp = json.optInt("signatureTimestamp", -1)
         if (playerId.isBlank() || signatureTimestamp < 0) {
@@ -29,10 +38,20 @@ class TypetypeTokenYoutubeJavaScriptDecoder(
         signatures: MutableList<String>?,
         throttlingParameters: MutableList<String>?,
     ): YoutubeApiDecoder.BatchDecodeResult {
+        return decodeBatch(playerId, null, signatures, throttlingParameters)
+    }
+
+    override fun decodeBatch(
+        playerId: String,
+        clientName: String?,
+        signatures: MutableList<String>?,
+        throttlingParameters: MutableList<String>?,
+    ): YoutubeApiDecoder.BatchDecodeResult {
         val body = JSONObject()
             .put("playerId", playerId)
             .put("signatures", JSONArray(signatures ?: emptyList<String>()))
             .put("throttlingParameters", JSONArray(throttlingParameters ?: emptyList<String>()))
+        clientName?.takeIf(String::isNotBlank)?.let { body.put("clientName", it) }
         val json = callDecoder(body)
         return YoutubeApiDecoder.BatchDecodeResult(
             json.optJSONObject("signatures").toMapString(),

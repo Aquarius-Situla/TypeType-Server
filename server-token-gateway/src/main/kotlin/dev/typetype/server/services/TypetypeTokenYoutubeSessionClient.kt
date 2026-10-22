@@ -1,12 +1,16 @@
 package dev.typetype.server.services
 
 import com.grack.nanojson.JsonParser
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withContext
 import okhttp3.Call
 import okhttp3.Callback
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
+import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.Response
 import org.json.JSONObject
 import org.schabi.newpipe.extractor.services.youtube.YoutubeParsingHelper
@@ -27,6 +31,116 @@ class TypetypeTokenYoutubeSessionClient(
     private val tokenServiceUrl: String,
     private val client: OkHttpClient = OkHttpClient(),
 ) {
+    suspend fun importSessionBinding(cookies: String): TokenSessionBinding? =
+        withContext(Dispatchers.IO) {
+            val body = JSONObject().put("cookies", cookies).toString()
+                .toRequestBody("application/json".toMediaType())
+            val request = Request.Builder()
+                .url("${tokenServiceUrl.trimEnd('/')}/session-binding")
+                .post(body)
+                .build()
+            try {
+                client.newCall(request).execute().use { response ->
+                    if (!response.isSuccessful) {
+                        null
+                    } else {
+                        val payload = JSONObject(response.body?.string().orEmpty())
+                        TokenSessionBinding(
+                            cookies = payload.optString("cookies"),
+                            poToken = payload.optString("poToken"),
+                            authUser = payload.optInt("authUser"),
+                        ).takeIf { it.cookies.isNotBlank() && it.poToken.isNotBlank() }
+                    }
+                }
+            } catch (_: IOException) {
+                null
+            }
+        }
+
+    suspend fun startDeviceLogin(accountKey: String): TokenDeviceStart? =
+        deviceCall("/device/start", accountKey, "accountKey")?.let { payload ->
+            TokenDeviceStart(
+                userCode = payload.optString("userCode"),
+                verificationUrl = payload.optString("verificationUrl"),
+                expiresAt = payload.optLong("expiresAt"),
+                intervalSeconds = payload.optInt("intervalSeconds"),
+            ).takeIf { it.userCode.isNotBlank() && it.verificationUrl.isNotBlank() }
+        }
+
+    suspend fun pollDeviceLogin(accountKey: String): TokenDevicePoll? =
+        deviceCall("/device/poll", accountKey, "accountKey")?.let { payload ->
+            TokenDevicePoll(
+                status = payload.optString("status"),
+                tokens = payload.optJSONObject("tokens")?.let { tokens ->
+                    TokenDeviceTokens(
+                        accessToken = tokens.optString("accessToken"),
+                        refreshToken = tokens.optString("refreshToken").ifBlank { null },
+                        expiresIn = tokens.optLong("expiresIn"),
+                    )
+                },
+            )
+        }
+
+    suspend fun refreshDeviceToken(refreshToken: String): TokenDeviceTokens? =
+        deviceCall("/device/refresh", refreshToken, "refreshToken")?.let { payload ->
+            TokenDeviceTokens(
+                accessToken = payload.optString("accessToken"),
+                refreshToken = payload.optString("refreshToken").ifBlank { refreshToken },
+                expiresIn = payload.optLong("expiresIn"),
+            ).takeIf { it.accessToken.isNotBlank() }
+        }
+
+    suspend fun revokeDeviceToken(token: String) {
+        deviceCall("/device/revoke", token, "token")
+    }
+
+    suspend fun fetchTvPoToken(): TokenTvPoToken? = withContext(Dispatchers.IO) {
+        val request = Request.Builder()
+            .url("${tokenServiceUrl.trimEnd('/')}/tv-token")
+            .get()
+            .build()
+        try {
+            client.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) return@use null
+                val payload = JSONObject(response.body?.string().orEmpty())
+                TokenTvPoToken(
+                    poToken = payload.optString("poToken"),
+                    visitorData = payload.optString("visitorData"),
+                    livingRoomPoTokenId = payload.optString("livingRoomPoTokenId"),
+                ).takeIf {
+                    it.poToken.isNotBlank() &&
+                        it.visitorData.isNotBlank() &&
+                        it.livingRoomPoTokenId.isNotBlank()
+                }
+            }
+        } catch (_: IOException) {
+            null
+        }
+    }
+
+    suspend fun cancelDeviceLogin(accountKey: String) {
+        deviceCall("/device/cancel", accountKey, "accountKey")
+    }
+
+    private suspend fun deviceCall(path: String, value: String, field: String): JSONObject? =
+        withContext(Dispatchers.IO) {
+            val body = JSONObject().put(field, value).toString()
+                .toRequestBody("application/json".toMediaType())
+            val request = Request.Builder()
+                .url("${tokenServiceUrl.trimEnd('/')}$path")
+                .post(body)
+                .build()
+            try {
+                client.newCall(request).execute().use { response ->
+                    if (!response.isSuccessful) return@use null
+                    val text = response.body?.string().orEmpty()
+                    if (text.isBlank()) JSONObject() else JSONObject(text)
+                }
+            } catch (_: IOException) {
+                null
+            }
+        }
+
     suspend fun fetchHlsManifestUrl(videoId: String): String? = fetchSession(videoId)
         ?.optString("hlsManifestUrl")
         ?.trim()
@@ -149,3 +263,33 @@ class TypetypeTokenYoutubeSessionClient(
     }.getOrNull()
 
 }
+
+data class TokenSessionBinding(
+    val cookies: String,
+    val poToken: String,
+    val authUser: Int,
+)
+
+data class TokenDeviceStart(
+    val userCode: String,
+    val verificationUrl: String,
+    val expiresAt: Long,
+    val intervalSeconds: Int,
+)
+
+data class TokenDevicePoll(
+    val status: String,
+    val tokens: TokenDeviceTokens?,
+)
+
+data class TokenTvPoToken(
+    val poToken: String,
+    val visitorData: String,
+    val livingRoomPoTokenId: String,
+)
+
+data class TokenDeviceTokens(
+    val accessToken: String,
+    val refreshToken: String?,
+    val expiresIn: Long,
+)

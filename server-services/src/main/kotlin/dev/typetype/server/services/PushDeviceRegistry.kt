@@ -111,6 +111,7 @@ class PushDeviceRegistry(
             val auth = row[PushDevicesTable.authSecret] ?: return@mapNotNull null
             PushDevice(
                 id = row[PushDevicesTable.id],
+                deviceId = row[PushDevicesTable.deviceId],
                 userId = row[PushDevicesTable.userId],
                 endpoint = row[PushDevicesTable.endpoint],
                 p256dh = p256dh,
@@ -147,6 +148,7 @@ class PushDeviceRegistry(
 
 data class PushDevice(
     val id: String,
+    val deviceId: String = id,
     val userId: String,
     val endpoint: String,
     val p256dh: String,

@@ -58,7 +58,7 @@ SabrPlaybackPosition:
             $ref: ../components/sabr-playback.yaml#/SabrPlaybackPositionRequest
     responses:
       '200':
-        description: Current server-side SABR playback position.
+        description: Current server-side SABR playback position. A stale generation is ignored and the current generation and position are returned.
         content:
           application/json:
             schema:

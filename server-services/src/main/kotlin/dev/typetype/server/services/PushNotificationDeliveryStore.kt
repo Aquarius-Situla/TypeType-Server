@@ -67,13 +67,48 @@ class PushNotificationDeliveryStore(
             PushNotificationDeliveriesTable.update({
                 (PushNotificationDeliveriesTable.eventId eq work.eventId) and
                     (PushNotificationDeliveriesTable.userId eq work.device.userId) and
-                    (PushNotificationDeliveriesTable.deviceId eq work.device.id)
+                    (PushNotificationDeliveriesTable.deviceId eq work.device.deviceId) and
+                    (PushNotificationDeliveriesTable.status eq PushNotificationDeliveryStatus.PENDING)
             }) {
                 it[PushNotificationDeliveriesTable.status] = status
                 it[PushNotificationDeliveriesTable.lastError] = error
                 it[PushNotificationDeliveriesTable.updatedAt] = clock()
             }
         }
+    }
+
+    suspend fun acknowledge(
+        eventId: String,
+        userId: String,
+        deviceId: String,
+        outcome: String,
+        reasonCode: String?,
+    ): PushDeliveryAcknowledgementResult = DatabaseFactory.query {
+        val delivery = PushNotificationDeliveriesTable.selectAll().where {
+            (PushNotificationDeliveriesTable.eventId eq eventId) and
+                (PushNotificationDeliveriesTable.userId eq userId) and
+                (PushNotificationDeliveriesTable.deviceId eq deviceId)
+        }.singleOrNull() ?: return@query PushDeliveryAcknowledgementResult.NotFound
+        val status = PushNotificationDeliveryStatus.forOutcome(outcome)
+        if (delivery[PushNotificationDeliveriesTable.status] == status) {
+            return@query PushDeliveryAcknowledgementResult.AlreadyRecorded
+        }
+        if (delivery[PushNotificationDeliveriesTable.status] !in PushNotificationDeliveryStatus.ACKABLE) {
+            return@query PushDeliveryAcknowledgementResult.Conflict
+        }
+        val error = reasonCode?.let { "client_$it" }
+        val updated = PushNotificationDeliveriesTable.update({
+            (PushNotificationDeliveriesTable.eventId eq eventId) and
+                (PushNotificationDeliveriesTable.userId eq userId) and
+                (PushNotificationDeliveriesTable.deviceId eq deviceId) and
+                (PushNotificationDeliveriesTable.status inList PushNotificationDeliveryStatus.ACKABLE)
+        }) {
+            it[PushNotificationDeliveriesTable.status] = status
+            it[PushNotificationDeliveriesTable.lastError] = error
+            it[PushNotificationDeliveriesTable.updatedAt] = clock()
+        }
+        if (updated == 1) PushDeliveryAcknowledgementResult.Recorded
+        else PushDeliveryAcknowledgementResult.Conflict
     }
 
     suspend fun clearPending(userId: String, channelId: String) {
@@ -102,5 +137,24 @@ object PushNotificationDeliveryStatus {
     const val DELIVERED = "delivered"
     const val INVALID = "invalid"
     const val FAILED = "failed"
-    val RETRYABLE = listOf(PENDING, FAILED)
+    const val AWAITING_ACK = "awaiting_ack"
+    const val CLIENT_POSTED = "client_posted"
+    const val CLIENT_SUPPRESSED = "client_suppressed"
+    val ACKABLE = listOf(PENDING, FAILED, AWAITING_ACK)
+    val RETRYABLE = listOf(PENDING, FAILED, AWAITING_ACK)
+
+    fun forOutcome(outcome: String): String = when (outcome) {
+        "posted" -> CLIENT_POSTED
+        "suppressed" -> CLIENT_SUPPRESSED
+        "failed" -> FAILED
+        else -> error("Unsupported push acknowledgement outcome")
+    }
+}
+
+enum class PushDeliveryAcknowledgementResult {
+    Recorded,
+    AlreadyRecorded,
+    InvalidRequest,
+    NotFound,
+    Conflict,
 }

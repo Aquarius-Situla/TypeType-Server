@@ -11,7 +11,7 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.11.0")
     implementation("org.slf4j:slf4j-api:2.0.20")
     compileOnly("com.github.TeamNewPipe:nanojson:1d9e1aea9049fc9f85e68b43ba39fe7be1c1f751")
-    implementation("com.github.TypeType-Video.PipePipeExtractor:extractor:e314015d345a93eaa243a866be2ad4f5d91df14f")
+    implementation("com.github.TypeType-Video.PipePipeExtractor:extractor:705e2649f96e69d7525dac4fa625c60498639f81")
     implementation("io.ktor:ktor-server-core-jvm:3.6.0")
     implementation("io.ktor:ktor-server-websockets-jvm:3.6.0")
     implementation("io.ktor:ktor-client-core-jvm:3.6.0")
@@ -23,6 +23,7 @@ dependencies {
     testImplementation("org.junit.jupiter:junit-jupiter:6.1.3")
     testImplementation("io.mockk:mockk:1.14.11")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.11.0")
+    testImplementation(testFixtures(project(":server-db")))
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 

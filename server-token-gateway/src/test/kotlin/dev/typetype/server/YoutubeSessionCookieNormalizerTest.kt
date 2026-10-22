@@ -34,6 +34,20 @@ class YoutubeSessionCookieNormalizerTest {
     }
 
     @Test
+    fun `normalizes HttpOnly cookies from Netscape export`() {
+        val normalized = YoutubeSessionCookieNormalizer.normalize(
+            listOf(
+                "# Netscape HTTP Cookie File",
+                "#HttpOnly_.youtube.com\tTRUE\t/\tTRUE\t0\tSID\tsecure-session",
+                "#HttpOnly_.google.com\tTRUE\t/\tTRUE\t0\tSAPISID\tsecure-sapisid",
+                "#HttpOnly_.youtube.com\tTRUE\t/\tTRUE\t0\t__Secure-3PSID\tsecure-psid",
+            ).joinToString("\n")
+        )
+
+        assertEquals("SID=secure-session; SAPISID=secure-sapisid; __Secure-3PSID=secure-psid", normalized)
+    }
+
+    @Test
     fun `rejects oversized raw cookie export`() {
         assertNull(YoutubeSessionCookieNormalizer.normalize("SID=${"a".repeat(1024 * 1024)}"))
     }

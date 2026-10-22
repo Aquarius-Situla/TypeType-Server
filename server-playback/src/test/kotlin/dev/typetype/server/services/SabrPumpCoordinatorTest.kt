@@ -1,6 +1,8 @@
 package dev.typetype.server.services
 
 import org.junit.jupiter.api.Assertions.assertDoesNotThrow
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Test
 
@@ -66,6 +68,29 @@ class SabrProtectedResponseGuardTest {
 
         guard.verify(response, 0, 0)
         assertDoesNotThrow { guard.verify(response, 0, 0) }
+    }
+
+    @Test
+    fun `terminal failure retains safe response diagnostics only`() {
+        val guard = SabrProtectedResponseGuard(maximumResponses = 1)
+
+        val failure = assertThrows(SabrProtectedNoMediaException::class.java) {
+            guard.verify(
+                "request n=14 | response n=14 http=403 segments=count=0 " +
+                    "decoded={protection=3/20, backoffMs=1500, reload=true, rawValue=must-not-leak}",
+                generation = 0,
+                playerTimeMs = 0,
+            )
+        }
+
+        assertEquals(14, failure.responseNumber)
+        assertEquals(1, failure.responsesObserved)
+        assertEquals(403, failure.details.httpStatus)
+        assertEquals(3, failure.details.protectionStatus)
+        assertEquals(20, failure.details.maxRetries)
+        assertEquals(1500L, failure.details.backoffMs)
+        assertEquals(true, failure.details.reloadRequested)
+        assertFalse(failure.message.orEmpty().contains("must-not-leak"))
     }
 
     private fun response(number: Int, protection: Int, segments: Int): String =

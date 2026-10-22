@@ -65,7 +65,7 @@ object YoutubeTakeoutDateParser {
     private val monthAliases by lazy(::buildMonthAliases)
 
     fun parseEpochMillis(value: String): Long? {
-        val trimmed = value.replace("\u00a0", " ").trim()
+        val trimmed = ACTIVITY_SPACES_REGEX.replace(value, " ").trim()
         if (trimmed.isBlank()) return null
         parseOffset(trimmed)?.let { return it }
         parseInstant(trimmed)?.let { return it }
@@ -167,7 +167,7 @@ object YoutubeTakeoutDateParser {
 
     private val MONTH_TOKEN_REGEX = Regex("[\\p{L}\\p{M}][\\p{L}\\p{M}.]*")
     private val ACTIVITY_CONNECTOR_REGEX = Regex("\\s+(?:de|del)\\s+", RegexOption.IGNORE_CASE)
-    private val ACTIVITY_SPACES_REGEX = Regex("\\s+")
+    private val ACTIVITY_SPACES_REGEX = Regex("[\\p{Z}\\s]+")
     private val DAY_PERIOD_REGEX = Regex(
         "凌晨|清晨|早晨|早上|上午|中午|下午|晚上|半夜|午前|午後|오전|오후|" +
             "صباحًا|صباحا|صباح|مساءً|مساءا|مساء|قبل الظهر|بعد الظهر|" +

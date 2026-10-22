@@ -7,7 +7,7 @@ dependencies {
     api(project(":server-core"))
     implementation(project(":server-downloader"))
     implementation("com.github.TeamNewPipe:nanojson:1d9e1aea9049fc9f85e68b43ba39fe7be1c1f751")
-    implementation("com.github.TypeType-Video.PipePipeExtractor:extractor:e314015d345a93eaa243a866be2ad4f5d91df14f")
+    implementation("com.github.TypeType-Video.PipePipeExtractor:extractor:705e2649f96e69d7525dac4fa625c60498639f81")
     implementation(project(":server-cache"))
     implementation(project(":server-db"))
     implementation("org.jetbrains.exposed:exposed-core:1.5.1")

@@ -166,6 +166,7 @@ object DatabaseFactory {
             exec("ALTER TABLE youtube_takeout_import_jobs ADD COLUMN IF NOT EXISTS preview_json TEXT")
             exec("ALTER TABLE youtube_sessions ADD COLUMN IF NOT EXISTS auth_user INTEGER NOT NULL DEFAULT 0")
             exec("ALTER TABLE bug_reports ALTER COLUMN github_issue_url TYPE TEXT")
+            DatabaseYoutubeOauthMigration.apply()
             DatabaseSessionAuthMigration.apply()
             DatabaseOidcMigration.apply()
             DatabaseProfileAccountsMigration.apply()
@@ -177,6 +178,7 @@ object DatabaseFactory {
             DatabaseImportedMediaRepairMigration.apply()
             DatabaseCollectionMetadataMigration.apply()
             DatabaseRecommenderMigration.apply()
+            DatabaseBiliBiliSessionRefreshMigration.apply()
         }
     }
     suspend fun <T> query(block: () -> T): T = blocking { transaction { block() } }

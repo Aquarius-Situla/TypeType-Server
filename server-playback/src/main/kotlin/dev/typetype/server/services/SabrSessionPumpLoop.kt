@@ -43,6 +43,7 @@ class SabrSessionPumpLoop(
                 holder.failTerminal(sabrRecoverableFailureMessage(error.message))
                 return
             } catch (error: SabrProtectedNoMediaException) {
+                SabrPumpLogger.protectedNoMedia(holder, error)
                 holder.failTerminal(error.message)
                 return
             } catch (error: ExtractionException) {

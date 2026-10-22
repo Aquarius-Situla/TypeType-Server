@@ -30,8 +30,10 @@ object SettingsSchemaMigrations {
         exec("ALTER TABLE settings ADD COLUMN IF NOT EXISTS disable_watch_history BOOLEAN NOT NULL DEFAULT false")
         exec("ALTER TABLE settings ADD COLUMN IF NOT EXISTS skip_playlist_autoplay_screen BOOLEAN NOT NULL DEFAULT false")
         exec("ALTER TABLE settings ADD COLUMN IF NOT EXISTS hide_upcoming_playlist_videos BOOLEAN NOT NULL DEFAULT false")
-        exec("ALTER TABLE settings ADD COLUMN IF NOT EXISTS autoplay_on_open BOOLEAN NOT NULL DEFAULT true")
-        exec("UPDATE settings SET autoplay_on_open = autoplay")
+        if (!settingsColumnExists("autoplay_on_open")) {
+            exec("ALTER TABLE settings ADD COLUMN autoplay_on_open BOOLEAN NOT NULL DEFAULT true")
+            exec("UPDATE settings SET autoplay_on_open = autoplay")
+        }
         exec("ALTER TABLE settings ADD COLUMN IF NOT EXISTS autoplay_countdown_seconds INTEGER NOT NULL DEFAULT 10")
         exec("ALTER TABLE settings ADD COLUMN IF NOT EXISTS subscription_sync_interval INTEGER NOT NULL DEFAULT 0")
         exec("ALTER TABLE settings ADD COLUMN IF NOT EXISTS default_landing_page TEXT NOT NULL DEFAULT 'home'")
@@ -45,6 +47,12 @@ object SettingsSchemaMigrations {
         exec("ALTER TABLE settings ADD COLUMN IF NOT EXISTS dearrow_thumbnail_mode TEXT NOT NULL DEFAULT 'dearrow_or_random'")
         exec("ALTER TABLE settings ADD COLUMN IF NOT EXISTS dearrow_trust_mode TEXT NOT NULL DEFAULT 'accepted'")
     }
+
+    private fun settingsColumnExists(column: String): Boolean =
+        TransactionManager.current().exec(
+            "SELECT 1 FROM information_schema.columns " +
+                "WHERE table_schema = current_schema() AND table_name = 'settings' AND column_name = '$column'",
+        ) { resultSet -> resultSet.next() } ?: false
 
     private fun exec(sql: String) {
         TransactionManager.current().exec(sql)

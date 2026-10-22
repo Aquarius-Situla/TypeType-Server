@@ -40,22 +40,24 @@ internal class SabrPlaybackWindowHandler(private val sabrSessionStore: SabrSessi
         val request = runCatching { call.receive<SabrPlaybackPositionRequest>() }.getOrNull()
             ?: return call.respond(HttpStatusCode.BadRequest, ErrorResponse("Invalid position request"))
         val holder = validatedHolder(call, sessionId, request) ?: return
-        holder.setPlaybackRate(request.playbackRate)
-        holder.setActiveTracks(videoActive = !request.audioOnly, audioActive = true)
-        val playerTimeMs = holder.resolvePlaybackStartMs(request.playerTimeMs)
-        holder.setPlayerTimeMs(playerTimeMs)
-        holder.applyClientPreferences()
-        call.respond(
+        val response = synchronized(holder) {
+            if (request.generation == holder.activeGeneration()) {
+                holder.setPlaybackRate(request.playbackRate)
+                holder.setActiveTracks(videoActive = !request.audioOnly, audioActive = true)
+                holder.setPlayerTimeMs(holder.resolvePlaybackStartMs(request.playerTimeMs))
+                holder.applyClientPreferences()
+            }
             SabrPlaybackPositionResponse(
                 sessionId = holder.sessionToken,
                 generation = holder.activeGeneration(),
-                playerTimeMs = playerTimeMs,
+                playerTimeMs = holder.playerTimeMs(),
                 readerHeadMs = holder.readerHeadMs(),
                 readerTailMs = holder.readerTailMs(),
                 bufferedEdgeMs = holder.session.streamState.getMinBufferedEndMs(),
                 live = holder.livePlaybackSnapshot()?.toResponse(),
             )
-        )
+        }
+        call.respond(response)
     }
 
     suspend fun prefetch(call: ApplicationCall, sessionId: String) {
@@ -176,9 +178,6 @@ internal class SabrPlaybackWindowHandler(private val sabrSessionStore: SabrSessi
             ?: return call.respond(HttpStatusCode.NotFound, ErrorResponse("No active SABR playback session")).let { null }
         if (!holder.matches(request)) {
             return call.respond(HttpStatusCode.BadRequest, ErrorResponse("Position formats do not match session")).let { null }
-        }
-        if (request.generation != holder.activeGeneration()) {
-            return call.respond(HttpStatusCode.BadRequest, ErrorResponse("Invalid generation")).let { null }
         }
         if (!request.playbackRate.isSupportedSabrPlaybackRate()) {
             return call.respond(HttpStatusCode.BadRequest, ErrorResponse("Invalid playback rate")).let { null }

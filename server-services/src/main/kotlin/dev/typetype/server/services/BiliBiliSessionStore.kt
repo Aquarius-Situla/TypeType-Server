@@ -15,9 +15,10 @@ class BiliBiliSessionStore(
     suspend fun completeForUser(
         userId: String,
         encryptedCookies: String,
+        encryptedRefreshToken: String?,
         expiresAt: Long,
     ): Unit = DatabaseFactory.query {
-        upsertSession(userId, encryptedCookies, expiresAt, nowMillis())
+        upsertSession(userId, encryptedCookies, encryptedRefreshToken, expiresAt, nowMillis())
     }
 
     suspend fun status(userId: String): BiliBiliSessionStatusResponse = DatabaseFactory.query {
@@ -39,6 +40,13 @@ class BiliBiliSessionStore(
         BiliBiliSessionsTable.deleteWhere { BiliBiliSessionsTable.userId eq userId } > 0
     }
 
+    suspend fun hasRefreshToken(userId: String): Boolean = DatabaseFactory.query {
+        BiliBiliSessionsTable.selectAll()
+            .where { BiliBiliSessionsTable.userId eq userId }
+            .singleOrNull()
+            ?.get(BiliBiliSessionsTable.encryptedRefreshToken) != null
+    }
+
     suspend fun connectedEncrypted(userId: String): String? = DatabaseFactory.query {
         BiliBiliSessionsTable.selectAll()
             .where { BiliBiliSessionsTable.userId eq userId }
@@ -57,31 +65,43 @@ class BiliBiliSessionStore(
             it[status] = BiliBiliSessionStatus.NeedsReconnect.value
             it[updatedAt] = now
             it[lastUsedAt] = now
+            it[encryptedRefreshToken] = null
+            it[encryptedPendingConfirmToken] = null
+            it[refreshClaimedUntil] = 0
         }
     }
 
     private fun upsertSession(
         userId: String,
         encryptedCookies: String,
+        encryptedRefreshToken: String?,
         expiresAt: Long,
         now: Long,
     ) {
         val updated = BiliBiliSessionsTable.update({ BiliBiliSessionsTable.userId eq userId }) {
             it[BiliBiliSessionsTable.encryptedCookies] = encryptedCookies
+            it[BiliBiliSessionsTable.encryptedRefreshToken] = encryptedRefreshToken
+            it[BiliBiliSessionsTable.encryptedPendingConfirmToken] = null
             it[BiliBiliSessionsTable.status] = BiliBiliSessionStatus.Connected.value
             it[BiliBiliSessionsTable.updatedAt] = now
             it[BiliBiliSessionsTable.lastUsedAt] = 0
             it[BiliBiliSessionsTable.expiresAt] = expiresAt
+            it[BiliBiliSessionsTable.refreshCheckedAt] = 0
+            it[BiliBiliSessionsTable.refreshClaimedUntil] = 0
         }
         if (updated == 0) {
             BiliBiliSessionsTable.insert {
                 it[BiliBiliSessionsTable.userId] = userId
                 it[BiliBiliSessionsTable.encryptedCookies] = encryptedCookies
+                it[BiliBiliSessionsTable.encryptedRefreshToken] = encryptedRefreshToken
+                it[BiliBiliSessionsTable.encryptedPendingConfirmToken] = null
                 it[BiliBiliSessionsTable.status] = BiliBiliSessionStatus.Connected.value
                 it[BiliBiliSessionsTable.createdAt] = now
                 it[BiliBiliSessionsTable.updatedAt] = now
                 it[BiliBiliSessionsTable.lastUsedAt] = 0
                 it[BiliBiliSessionsTable.expiresAt] = expiresAt
+                it[BiliBiliSessionsTable.refreshCheckedAt] = 0
+                it[BiliBiliSessionsTable.refreshClaimedUntil] = 0
             }
         }
     }
