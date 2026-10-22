@@ -137,14 +137,6 @@ paths:
     $ref: ./openapi/paths/downloader.yaml#/JobArtifact
   /downloader/jobs/{id}/cancel:
     $ref: ./openapi/paths/downloader.yaml#/JobCancel
-  /youtube-session/browser/start:
-    $ref: ./openapi/paths/youtube-session.yaml#/BrowserStart
-  /youtube-session/browser/{sessionId}:
-    $ref: ./openapi/paths/youtube-session.yaml#/BrowserSession
-  /internal/youtube-remote-login/callback:
-    $ref: ./openapi/paths/youtube-session.yaml#/InternalBrowserComplete
-  /internal/youtube-session/browser/complete:
-    $ref: ./openapi/paths/youtube-session.yaml#/InternalBrowserComplete
 components:
   securitySchemes:
     bearerAuth:

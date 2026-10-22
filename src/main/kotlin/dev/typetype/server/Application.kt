@@ -21,12 +21,8 @@ import dev.typetype.server.services.InternalHealthService
 import dev.typetype.server.services.NewPipeInitializer
 import dev.typetype.server.services.OidcAuthService
 import dev.typetype.server.services.OidcConfigLoader
-import dev.typetype.server.services.OkHttpYoutubeRemoteBrowserClient
 import dev.typetype.server.services.SecretConfigReader
 import dev.typetype.server.services.UserAdminService
-import dev.typetype.server.services.YoutubeRemoteBrowserConfig
-import dev.typetype.server.services.YoutubeRemoteBrowserService
-import dev.typetype.server.services.YoutubeRemoteLoginReadinessService
 import dev.typetype.server.services.PushNotificationScheduler
 import dev.typetype.server.services.BiliBiliSessionRefreshScheduler
 import dev.typetype.server.services.YoutubeSessionRefreshScheduler
@@ -95,24 +91,12 @@ fun Application.module() {
     monitor.subscribe(ApplicationStopped) { svc.homeRecommendationServices.close() }
     monitor.subscribe(ApplicationStopped) { svc.recommenderServices.close() }
     monitor.subscribe(ApplicationStopped) { svc.youtubeLiveChatService.close() }
-    val youtubeRemoteBrowserConfig = YoutubeRemoteBrowserConfig.fromEnvironment(subtitleServiceUrl)
-    val youtubeRemoteLoginReadinessService = YoutubeRemoteLoginReadinessService(
-        youtubeRemoteBrowserConfig,
-        svc.youtubeSessionService,
-    )
     val instanceService = InstanceService(
         authService,
         adminSettingsService,
-        youtubeRemoteLoginStatusProvider = youtubeRemoteLoginReadinessService::status,
         oidcConfigProvider = oidcAuthService::publicConfig,
         pushNotificationCapabilityProvider = svc.pushNotificationService::capability,
         recommenderInstalled = { svc.recommenderServices.config.installed },
-    )
-    val youtubeRemoteBrowserService = YoutubeRemoteBrowserService(
-        youtubeRemoteBrowserConfig,
-        adminSettingsService,
-        svc.youtubeSessionService,
-        OkHttpYoutubeRemoteBrowserClient(youtubeRemoteBrowserConfig.serviceUrl),
     )
     val downloaderGatewayService = DownloaderGatewayService(downloaderServiceUrl)
     val openMojiProxyService = OpenMojiProxyService(cache)
@@ -147,7 +131,6 @@ fun Application.module() {
         openMojiProxyService = openMojiProxyService,
         internalHealthService = internalHealthService,
         restoreService = restoreService,
-        youtubeRemoteBrowserService = youtubeRemoteBrowserService,
         portabilityEngine = portabilityEngine,
     )
 }

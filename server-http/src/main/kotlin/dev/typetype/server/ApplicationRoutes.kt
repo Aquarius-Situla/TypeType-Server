@@ -30,7 +30,6 @@ import dev.typetype.server.routes.sessionActivityRoutes
 import dev.typetype.server.routes.suggestionRoutes
 import dev.typetype.server.routes.trendingRoutes
 import dev.typetype.server.routes.userDataRoutes
-import dev.typetype.server.routes.youtubeRemoteBrowserRoutes
 import dev.typetype.server.services.ActiveSessionService
 import dev.typetype.server.services.AdminSettingsService
 import dev.typetype.server.services.AuthService
@@ -49,7 +48,6 @@ import dev.typetype.server.services.ProfileAccountService
 import dev.typetype.server.services.PresenceKeyService
 import dev.typetype.server.services.PresenceService
 import dev.typetype.server.services.UserAdminService
-import dev.typetype.server.services.YoutubeRemoteBrowserService
 import dev.typetype.server.portability.PortabilityEngine
 import io.ktor.server.application.Application
 import io.ktor.server.plugins.ratelimit.rateLimit
@@ -75,7 +73,6 @@ fun Application.installApplicationRoutes(
     openMojiProxyService: OpenMojiProxyService,
     internalHealthService: InternalHealthService,
     restoreService: PipePipeBackupImporterService,
-    youtubeRemoteBrowserService: YoutubeRemoteBrowserService,
     portabilityEngine: PortabilityEngine,
 ) {
     routing {
@@ -145,7 +142,6 @@ fun Application.installApplicationRoutes(
         rateLimit(USER_DATA_ZONE) { presenceRoutes(authService, presenceKeyService, presenceService) }
         adminBugReportRoutes(authService, svc.bugReportService, gitHubIssueService)
         avatarRoutes(avatarService, openMojiProxyService, svc.customAvatarService)
-        rateLimit(USER_DATA_ZONE) { youtubeRemoteBrowserRoutes(youtubeRemoteBrowserService, authService) }
         rateLimit(USER_DATA_ZONE) {
             userDataRoutes(
                 svc,
