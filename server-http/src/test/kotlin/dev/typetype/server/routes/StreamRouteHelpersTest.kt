@@ -91,4 +91,34 @@ class StreamRouteHelpersTest {
 
         assertSame(authenticated, authenticated.withPublicStreamMetadata(fallback))
     }
+
+    @Test
+    fun `fills missing related videos from the dedicated fallback`() = kotlinx.coroutines.runBlocking {
+        val related = listOf(testVideoItem().copy(id = "related"))
+        val resolution = StreamResolution(ExtractionResult.Success(testStreamResponse()))
+
+        val result = resolution.withRelatedVideos("https://www.youtube.com/watch?v=test") {
+            ExtractionResult.Success(related)
+        }
+
+        val success = result.result as ExtractionResult.Success
+        assertEquals(related, success.data.relatedStreams)
+    }
+
+    @Test
+    fun `keeps existing related videos without calling the fallback`() = kotlinx.coroutines.runBlocking {
+        val existing = listOf(testVideoItem().copy(id = "existing"))
+        val resolution = StreamResolution(
+            ExtractionResult.Success(testStreamResponse().copy(relatedStreams = existing)),
+        )
+        var calls = 0
+
+        val result = resolution.withRelatedVideos("https://www.youtube.com/watch?v=test") {
+            calls += 1
+            ExtractionResult.Success(emptyList())
+        }
+
+        assertEquals(existing, (result.result as ExtractionResult.Success).data.relatedStreams)
+        assertEquals(0, calls)
+    }
 }

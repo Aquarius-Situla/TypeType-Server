@@ -38,6 +38,7 @@ internal fun Route.installStreamRoutes(
             youtubeSessionSabrStreamInfo = svc.youtubeSessionSabrStreamService?.let { service ->
                 { userId, url -> service.getStreamInfo(userId, url) }
             },
+            youtubeRelatedVideos = { url -> svc.youtubeRelatedVideosService.related(url) },
         )
         audioOnlyContractRoutes(
             streamService = svc.streamService,

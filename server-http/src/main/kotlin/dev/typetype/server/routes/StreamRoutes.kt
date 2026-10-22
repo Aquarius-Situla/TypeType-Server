@@ -4,6 +4,7 @@ import dev.typetype.server.PlaybackTraceLog
 import dev.typetype.server.models.ErrorResponse
 import dev.typetype.server.models.ExtractionResult
 import dev.typetype.server.models.StreamResponse
+import dev.typetype.server.models.VideoItem
 import dev.typetype.server.services.AccessControlService
 import dev.typetype.server.services.AdminSettingsService
 import dev.typetype.server.services.AuthService
@@ -37,6 +38,7 @@ fun Route.streamRoutes(
     youtubeLiveHlsStreamService: StreamService = streamService,
     youtubeSessionSabrStreamInfo: (suspend (String, String) -> ExtractionResult<StreamResponse>?)? = null,
     bilibiliSessionStreamInfo: (suspend (String, String) -> ExtractionResult<StreamResponse>?)? = null,
+    youtubeRelatedVideos: (suspend (String) -> ExtractionResult<List<VideoItem>>)? = null,
     previewsEnabled: Boolean = StreamPreview.enabledByDefault,
     sabrStreamContractFilter: (suspend (String, StreamResponse) -> StreamResponse)? = null,
 ) {
@@ -50,14 +52,16 @@ fun Route.streamRoutes(
         sabrStreamContractFilter = sabrStreamContractFilter,
         youtubeSessionSabrStreamInfo = youtubeSessionSabrStreamInfo,
         bilibiliSessionStreamInfo = bilibiliSessionStreamInfo,
+        youtubeRelatedVideos = youtubeRelatedVideos,
     )
+    val bootstrapDependencies = dependencies.copy(youtubeRelatedVideos = null)
     streamRoute("/streams/youtube/sabr", StreamDeliveryMode.YoutubeSabr, streamService, dependencies, previewsEnabled)
     streamRoute("/streams/youtube/live", StreamDeliveryMode.YoutubeLiveHls, youtubeLiveHlsStreamService, dependencies, previewsEnabled)
     streamRoute(
         "/streams/youtube/sabr/bootstrap",
         StreamDeliveryMode.YoutubeSabr,
         sabrBootstrapStreamService,
-        dependencies,
+        bootstrapDependencies,
         previewsEnabled,
     )
     streamRoute("/streams/niconico", StreamDeliveryMode.NicoNico, nicoNicoStreamService, dependencies, previewsEnabled)

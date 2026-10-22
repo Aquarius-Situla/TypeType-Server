@@ -188,11 +188,12 @@ class ServiceRegistry(
     val homeRecommendationServices = createHomeRecommendationServices(cache, recommendationPoolResolverDependencies)
     val homeRecommendationService = homeRecommendationServices.recommendationService
     val homeRecommendationWarmupService = homeRecommendationServices.warmupService
+    val youtubeRelatedVideosService = YoutubeRelatedVideosService()
     val recommenderServices = RecommenderServices(
         RecommenderDependencies(
             cache, adminSettingsService, historyService, progressService, favoritesService, subscriptionsService,
             subscriptionFeedService, blockedService, settingsService, searchService, channelService, streamService,
-            trendingService, extraction.streamRequestWatch, YoutubeRelatedVideosService(),
+            trendingService, extraction.streamRequestWatch, youtubeRelatedVideosService,
         ),
     )
 
