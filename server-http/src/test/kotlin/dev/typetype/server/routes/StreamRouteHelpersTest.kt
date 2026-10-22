@@ -2,6 +2,7 @@ package dev.typetype.server.routes
 
 import dev.typetype.server.models.ExtractionResult
 import dev.typetype.server.testStreamResponse
+import dev.typetype.server.testVideoItem
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Test
@@ -47,6 +48,40 @@ class StreamRouteHelpersTest {
         val result = authenticated.withPublicStreamMetadata(public) as ExtractionResult.Success
 
         assertEquals("Authenticated title", result.data.title)
+    }
+
+    @Test
+    fun `fills authenticated metadata and recommendations from public extraction`() {
+        val related = listOf(testVideoItem().copy(id = "related"))
+        val authenticated = ExtractionResult.Success(
+            testStreamResponse().copy(
+                viewCount = -1,
+                likeCount = -1,
+                dislikeCount = -1,
+                uploaded = -1,
+                relatedStreams = emptyList(),
+                hlsUrl = "/streams/hls-manifest?token=authenticated",
+            ),
+        )
+        val public = ExtractionResult.Success(
+            testStreamResponse().copy(
+                viewCount = 1_234,
+                likeCount = 56,
+                dislikeCount = 7,
+                uploaded = 1_700_000_000_000L,
+                relatedStreams = related,
+                hlsUrl = "/public.m3u8",
+            ),
+        )
+
+        val result = authenticated.withPublicStreamMetadata(public) as ExtractionResult.Success
+
+        assertEquals(1_234, result.data.viewCount)
+        assertEquals(56, result.data.likeCount)
+        assertEquals(7, result.data.dislikeCount)
+        assertEquals(1_700_000_000_000L, result.data.uploaded)
+        assertEquals(related, result.data.relatedStreams)
+        assertEquals("/streams/hls-manifest?token=authenticated", result.data.hlsUrl)
     }
 
     @Test

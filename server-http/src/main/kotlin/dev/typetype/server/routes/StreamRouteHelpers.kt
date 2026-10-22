@@ -90,6 +90,14 @@ internal fun ExtractionResult<StreamResponse>.withPublicStreamMetadata(
     return primary.copy(
         data = primary.data.copy(
             title = title,
+            thumbnailUrl = primary.data.thumbnailUrl.ifBlank { metadata.thumbnailUrl },
+            description = primary.data.description.ifBlank { metadata.description },
+            duration = primary.data.duration.takeIf { it > 0L } ?: metadata.duration,
+            viewCount = primary.data.viewCount.takeIf { it >= 0L } ?: metadata.viewCount,
+            likeCount = primary.data.likeCount.takeIf { it >= 0L } ?: metadata.likeCount,
+            dislikeCount = primary.data.dislikeCount.takeIf { it >= 0L } ?: metadata.dislikeCount,
+            uploadDate = primary.data.uploadDate.ifBlank { metadata.uploadDate },
+            uploaded = primary.data.uploaded.takeIf { it >= 0L } ?: metadata.uploaded,
             uploaderName = primary.data.uploaderName.ifBlank { metadata.uploaderName },
             uploaderUrl = primary.data.uploaderUrl.ifBlank { metadata.uploaderUrl },
             uploaderAvatarUrl = primary.data.uploaderAvatarUrl.ifBlank { metadata.uploaderAvatarUrl },
@@ -97,6 +105,27 @@ internal fun ExtractionResult<StreamResponse>.withPublicStreamMetadata(
                 .takeIf { it >= 0 }
                 ?: metadata.uploaderSubscriberCount,
             uploaderVerified = primary.data.uploaderVerified || metadata.uploaderVerified,
+            category = primary.data.category.ifBlank { metadata.category },
+            license = primary.data.license.ifBlank { metadata.license },
+            visibility = primary.data.visibility.ifBlank { metadata.visibility },
+            tags = primary.data.tags.ifEmpty { metadata.tags },
+            streamType = primary.data.streamType.ifBlank { metadata.streamType },
+            isPostLive = primary.data.isPostLive || metadata.isPostLive,
+            isLiveContent = primary.data.isLiveContent || metadata.isLiveContent,
+            isShortFormContent = primary.data.isShortFormContent || metadata.isShortFormContent,
+            requiresMembership = primary.data.requiresMembership || metadata.requiresMembership,
+            streamSegments = primary.data.streamSegments.ifEmpty { metadata.streamSegments },
+            originalAudioTrackId = primary.data.originalAudioTrackId ?: metadata.originalAudioTrackId,
+            preferredDefaultAudioTrackId = primary.data.preferredDefaultAudioTrackId
+                ?: metadata.preferredDefaultAudioTrackId,
+            subtitles = primary.data.subtitles.ifEmpty { metadata.subtitles },
+            previewFrames = primary.data.previewFrames.ifEmpty { metadata.previewFrames },
+            sponsorBlockSegments = primary.data.sponsorBlockSegments
+                .ifEmpty { metadata.sponsorBlockSegments },
+            relatedStreams = primary.data.relatedStreams.ifEmpty { metadata.relatedStreams },
+            publishedAt = primary.data.publishedAt ?: metadata.publishedAt,
+            collections = primary.data.collections.ifEmpty { metadata.collections },
+            parts = primary.data.parts.ifEmpty { metadata.parts },
         ),
     )
 }
