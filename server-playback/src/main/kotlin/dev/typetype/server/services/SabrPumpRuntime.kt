@@ -45,8 +45,12 @@ class SabrPumpRuntime(private val clock: () -> Long = System::currentTimeMillis)
         requestPerformed: Boolean,
         resolved: Boolean,
     ): SabrDemandRecoveryAction {
-        if (resolved || !requestPerformed) {
+        if (resolved) {
             resetDemandRecovery()
+            return SabrDemandRecoveryAction.WAIT
+        }
+        if (!requestPerformed) {
+            if (!demandNeedsTargetedShape(requestKey)) resetDemandRecovery()
             return SabrDemandRecoveryAction.WAIT
         }
         ensureDemand(requestKey)

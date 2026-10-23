@@ -192,6 +192,12 @@ class SabrSessionPumpLoop(
                 pumpUntilCached(holder, localization, request, runtime)
             }
         }
+        if (runtime.demandNeedsTargetedShape(identity)) {
+            holder.setPlaybackState(SabrPlaybackState.REPOSITIONING)
+            return withTargetedRequestShape(holder, request, prepareSession = false) {
+                pumpUntilCached(holder, localization, request, runtime)
+            }
+        }
         return when {
             startMs < edgeMs -> {
                 holder.setPlaybackState(SabrPlaybackState.REPOSITIONING)

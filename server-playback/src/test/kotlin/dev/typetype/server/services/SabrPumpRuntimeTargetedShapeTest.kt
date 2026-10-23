@@ -21,6 +21,11 @@ class SabrPumpRuntimeTargetedShapeTest {
         assertTrue(runtime.demandNeedsTargetedShape("demand"))
         assertEquals(
             SabrDemandRecoveryAction.WAIT,
+            runtime.demandRecoveryAction("demand", requestPerformed = false, resolved = false),
+        )
+        assertTrue(runtime.demandNeedsTargetedShape("demand"))
+        assertEquals(
+            SabrDemandRecoveryAction.WAIT,
             runtime.demandRecoveryAction("demand", requestPerformed = true, resolved = false),
         )
         assertTrue(runtime.demandNeedsTargetedShape("demand"))
