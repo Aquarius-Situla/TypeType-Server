@@ -150,7 +150,7 @@ internal class ExtractionServiceRegistry(
         YoutubeSessionStreamService(authenticatedStreamService, youtubeSessionService, cache, it)
     }
     val youtubeSessionSabrStreamService = youtubeSessionStreamService?.let {
-        YoutubeSessionSabrStreamService(it, authenticatedSabrInfoService)
+        YoutubeSessionSabrStreamService(it, authenticatedSabrInfoService, cache)
     }
     private val youtubeStreamGuards = YoutubeStreamGuards(sabrTokenClient)
     val streamRequestWatch get() = youtubeStreamGuards.watch

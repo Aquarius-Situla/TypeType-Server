@@ -7,6 +7,23 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 
 class StreamCacheTtlResolverTest {
+    @Test
+    fun youtubeSignedStreamExpiryBoundsItsCacheLifetime() {
+        val url = "https://rr1.googlevideo.com/videoplayback?expire=10000&sig=signature"
+        val stream = response("").copy(videoOnlyStreams = listOf(video(url)))
+
+        assertEquals(1_700L, stream.streamCacheTtlSeconds(nowEpochSeconds = 8_000L))
+    }
+
+    @Test
+    fun sabrSessionUrlExpiryAlsoBoundsItsCacheLifetime() {
+        val stream = response("").copy(
+            videoOnlyStreams = listOf(video("").copy(sabrSessionUrl = "/sabr/session/id?expires=10000")),
+        )
+
+        assertEquals(1_700L, stream.streamCacheTtlSeconds(nowEpochSeconds = 8_000L))
+    }
+
 
     @Test
     fun `default stream ttl is six hours`() {

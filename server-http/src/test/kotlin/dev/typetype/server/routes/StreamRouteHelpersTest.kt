@@ -3,11 +3,43 @@ package dev.typetype.server.routes
 import dev.typetype.server.models.ExtractionResult
 import dev.typetype.server.testStreamResponse
 import dev.typetype.server.testVideoItem
+import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Test
 
 class StreamRouteHelpersTest {
+    @Test
+    fun signedInUnrestrictedStreamsSkipAuthenticatedResolution() = runBlocking {
+        var authenticatedCalls = 0
+        val public = ExtractionResult.Success(testStreamResponse())
+        val result = resolveStreamInfo(
+            url = "https://www.youtube.com/watch?v=public-video",
+            deliveryMode = StreamDeliveryMode.YoutubeSabr,
+            userId = "user-id",
+            publicResult = public,
+            dependencies = StreamRouteDependencies(
+                authService = null,
+                accessControlService = null,
+                adminSettingsService = null,
+                blockedService = null,
+                publicHlsManifestTokenService = null,
+                providerMediaHandleService = null,
+                sabrStreamContractFilter = null,
+                youtubeSessionSabrStreamInfo = { _, _ ->
+                    authenticatedCalls += 1
+                    ExtractionResult.Success(testStreamResponse())
+                },
+                bilibiliSessionStreamInfo = null,
+                youtubeRelatedVideos = null,
+            ),
+        )
+
+        assertSame(public, result.result)
+        assertEquals(0, authenticatedCalls)
+        assertEquals(false, result.authenticated)
+    }
+
     @Test
     fun `fills missing authenticated uploader metadata from public extraction`() {
         val authenticated = testStreamResponse().copy(

@@ -72,6 +72,9 @@ private suspend fun resolvePublicOrAuthenticatedStreamInfo(
     if (!deliveryMode.isSabr() || authenticatedInfo == null) {
         return StreamResolution(publicResult)
     }
+    if (!publicResult.requiresYoutubeSession()) {
+        return StreamResolution(publicResult)
+    }
     val authenticatedResult = userId?.let { authenticatedInfo(it, url) }
     if (authenticatedResult != null) {
         val authenticatedLive = (authenticatedResult as? ExtractionResult.Success)?.data?.isLive == true
