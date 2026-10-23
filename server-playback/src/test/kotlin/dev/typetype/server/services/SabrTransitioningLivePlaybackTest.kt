@@ -232,6 +232,8 @@ class SabrTransientDemandFailureTest {
         every { format.itag } returns itag
         every { format.isAudio } returns isAudio
         every { format.bitrate } returns if (isAudio) 128_000 else 2_000_000
+        every { format.lastModified } returns 0L
+        every { format.xtags } returns ""
         return format
     }
 
