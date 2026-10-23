@@ -9,6 +9,7 @@ import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import dev.typetype.server.sabr.SabrSegmentRequest
@@ -45,9 +46,11 @@ class SabrDemandWatchdogLifecycleTest {
             advanceTimeBy(100L)
             runCurrent()
 
-            assertTrue(job.isCompleted)
-            assertTrue(expired)
-            assertEquals("SABR demand stalled for 140:50", holder.terminalFailure())
+            assertFalse(job.isCompleted)
+            assertFalse(expired)
+            assertNull(holder.terminalFailure())
+            assertNull(holder.pendingSegmentDemandSummary())
+            job.cancel()
         }
     }
 
@@ -131,6 +134,8 @@ class SabrDemandWatchdogLifecycleTest {
             val identity = requireNotNull(holder.segmentDemandIdentity(request))
             assertTrue(holder.beginInFlightSegmentDemand(request, identity, futureLiveRequest = false))
             holder.clearSegmentDemand(request)
+            val sibling = SabrSegmentRequest.media(holder.audioFormat, 51)
+            holder.requestSegmentDemand(sibling, registeredAtMs = 0L)
             var expired = false
 
             val job = launch {
@@ -189,10 +194,13 @@ class SabrDemandWatchdogLifecycleTest {
     fun `missing in flight demand expires at its original deadline`() = runTest {
         withTracker { holder ->
             val request = SabrSegmentRequest.media(holder.videoFormat, 50)
+            every { holder.session.isBeyondEnd(any()) } returns false
             holder.requestSegmentDemand(request, registeredAtMs = 0L)
             val identity = requireNotNull(holder.segmentDemandIdentity(request))
             assertTrue(holder.beginInFlightSegmentDemand(request, identity, futureLiveRequest = false))
             holder.clearSegmentDemand(request)
+            val sibling = SabrSegmentRequest.media(holder.audioFormat, 51)
+            holder.requestSegmentDemand(sibling, registeredAtMs = 0L)
             var expired = false
             val job = launch {
                 expired = SabrDemandWatchdog(
@@ -205,10 +213,12 @@ class SabrDemandWatchdogLifecycleTest {
             advanceTimeBy(SabrPumpPolicy.DEMAND_TARGET_DEADLINE_MS)
             runCurrent()
 
-            assertTrue(job.isCompleted)
-            assertTrue(expired)
-            assertEquals(SabrPlaybackState.TERMINAL, holder.playbackState())
-            assertEquals("SABR demand stalled for 299:50", holder.terminalFailure())
+            assertFalse(job.isCompleted)
+            assertFalse(expired)
+            assertFalse(holder.playbackState() == SabrPlaybackState.TERMINAL)
+            assertNull(holder.terminalFailure())
+            assertEquals("140:51", holder.pendingSegmentDemandSummary())
+            job.cancel()
         }
     }
 

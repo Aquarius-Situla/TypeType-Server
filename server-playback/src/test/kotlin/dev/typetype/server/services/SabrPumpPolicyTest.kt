@@ -71,23 +71,21 @@ class SabrPumpLauncherTest {
                 intervalMs = 100L,
             )
 
-            launchSabrPump(pump, registry, holder, 100L, watchdog)
+            backgroundScope.launchSabrPump(pump, registry, holder, 100L, watchdog)
             runCurrent()
             advanceTimeBy(SabrPumpPolicy.DEMAND_TARGET_DEADLINE_MS - 100L)
             runCurrent()
             companionBufferedEndMs = 10_000L
+            holder.requestSegmentDemand(
+                SabrSegmentRequest.media(holder.audioFormat, 51),
+                registeredAtMs = testScheduler.currentTime,
+            )
             assertFalse(holder.playbackState() == SabrPlaybackState.TERMINAL)
             advanceTimeBy(100L)
             runCurrent()
-            advanceUntilIdle()
-
-            assertEquals(SabrPlaybackState.TERMINAL, holder.playbackState())
-            assertEquals("SABR demand stalled for 140:50", holder.terminalFailure())
-            assertNull(holder.pendingSegmentDemandSummary())
-            holder.requestSegmentDemand(SabrSegmentRequest.media(holder.audioFormat, 51))
-            holder.setPlaybackState(SabrPlaybackState.IDLE)
-            assertNull(holder.pendingSegmentDemandSummary())
-            assertEquals(SabrPlaybackState.TERMINAL, holder.playbackState())
+            assertFalse(holder.playbackState() == SabrPlaybackState.TERMINAL)
+            assertNull(holder.terminalFailure())
+            assertEquals("140:51", holder.pendingSegmentDemandSummary())
         } finally {
             SabrSegmentDemandTracker.clearAll()
         }
@@ -112,17 +110,16 @@ class SabrPumpLauncherTest {
                 intervalMs = 100L,
             )
 
-            launchSabrPump(pump, registry, holder, 100L, watchdog)
+            backgroundScope.launchSabrPump(pump, registry, holder, 100L, watchdog)
             runCurrent()
             advanceTimeBy(SabrPumpPolicy.DEMAND_TARGET_DEADLINE_MS - 100L)
             runCurrent()
             targetBufferedEndMs = 10_000L
             advanceTimeBy(100L)
             runCurrent()
-            advanceUntilIdle()
-
-            assertEquals(SabrPlaybackState.TERMINAL, holder.playbackState())
-            assertEquals("SABR demand stalled for 140:50", holder.terminalFailure())
+            assertFalse(holder.playbackState() == SabrPlaybackState.TERMINAL)
+            assertNull(holder.terminalFailure())
+            assertNull(holder.pendingSegmentDemandSummary())
         } finally {
             SabrSegmentDemandTracker.clearAll()
         }
@@ -146,7 +143,7 @@ class SabrPumpLauncherTest {
                 intervalMs = 100L,
             )
 
-            launchSabrPump(pump, registry, holder, 100L, watchdog)
+            backgroundScope.launchSabrPump(pump, registry, holder, 100L, watchdog)
             runCurrent()
             advanceTimeBy(SabrPumpPolicy.DEMAND_TARGET_DEADLINE_MS - 100L)
             runCurrent()
@@ -159,10 +156,11 @@ class SabrPumpLauncherTest {
             assertFalse(holder.playbackState() == SabrPlaybackState.TERMINAL)
             advanceTimeBy(100L)
             runCurrent()
-            advanceUntilIdle()
-
-            assertEquals(SabrPlaybackState.TERMINAL, holder.playbackState())
-            assertEquals("SABR demand stalled for 140:51", holder.terminalFailure())
+            assertFalse(holder.playbackState() == SabrPlaybackState.TERMINAL)
+            assertNull(holder.terminalFailure())
+            assertNull(holder.pendingSegmentDemandSummary())
+            holder.requestSegmentDemand(SabrSegmentRequest.media(holder.audioFormat, 52))
+            assertEquals("140:52", holder.pendingSegmentDemandSummary())
         } finally {
             SabrSegmentDemandTracker.clearAll()
         }

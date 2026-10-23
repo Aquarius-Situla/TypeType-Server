@@ -55,6 +55,13 @@ class SabrDemandWatchdog(
                                 "network_slow"
                             },
                         )
+                    } else if (isVodDemand(holder)) {
+                        SabrVodDemandExpiration.expireInFlight(
+                            holder,
+                            inFlightDemand,
+                            nowMs,
+                            (deadlineAtMs - inFlightDemand.registeredAtMs).coerceAtLeast(0L),
+                        )
                     } else if (SabrDemandAttemptFinisher.expireStalledInFlightDemand(
                             holder,
                             inFlightDemand,
@@ -119,17 +126,26 @@ class SabrDemandWatchdog(
                     deadline.deadlineAtMs(demandIdentity, registered, nowMs, backoffRemainingMs)
                 }
             }
-            if (identity != null && registeredAtMs != null && deadlineAtMs != null && nowMs >= deadlineAtMs &&
-                SabrDemandAttemptFinisher.expireStalledDemand(
-                    holder,
-                    request,
-                    identity,
-                    nowMs = nowMs,
-                    expectedDelayMs = (deadlineAtMs - registeredAtMs).coerceAtLeast(0L),
-                    reason = "terminal_deadline",
-                )
-            ) {
-                return true
+            if (identity != null && registeredAtMs != null && deadlineAtMs != null && nowMs >= deadlineAtMs) {
+                if (isVodDemand(holder)) {
+                    SabrVodDemandExpiration.expireQueued(
+                        holder,
+                        request,
+                        identity,
+                        nowMs,
+                        (deadlineAtMs - registeredAtMs).coerceAtLeast(0L),
+                    )
+                } else if (SabrDemandAttemptFinisher.expireStalledDemand(
+                        holder,
+                        request,
+                        identity,
+                        nowMs = nowMs,
+                        expectedDelayMs = (deadlineAtMs - registeredAtMs).coerceAtLeast(0L),
+                        reason = "terminal_deadline",
+                    )
+                ) {
+                    return true
+                }
             }
             delay(nextCheckDelayMs(backoffRemainingMs, futureLiveRequest))
         }
@@ -138,4 +154,7 @@ class SabrDemandWatchdog(
 
     private fun nextCheckDelayMs(backoffRemainingMs: Long, futureLiveRequest: Boolean): Long =
         maxOf(intervalMs, LIVE_EDGE_POLL_MS.takeIf { futureLiveRequest } ?: 0L)
+
+    private fun isVodDemand(holder: SabrSessionHolder): Boolean =
+        !holder.expectsLive() && holder.livePlaybackSnapshot()?.active != true
 }

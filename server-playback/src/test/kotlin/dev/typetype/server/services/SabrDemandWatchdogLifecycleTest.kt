@@ -10,6 +10,7 @@ import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotEquals
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import dev.typetype.server.sabr.SabrSegmentRequest
@@ -41,9 +42,11 @@ class SabrDemandWatchdogBackoffTest {
 
             advanceTimeBy(100L)
             runCurrent()
-            assertTrue(job.isCompleted)
-            assertTrue(expired)
-            assertEquals("SABR demand stalled for 140:50", holder.terminalFailure())
+            assertFalse(job.isCompleted)
+            assertFalse(expired)
+            assertNull(holder.terminalFailure())
+            assertNull(holder.pendingSegmentDemandSummary())
+            job.cancel()
         }
     }
 
@@ -71,9 +74,11 @@ class SabrDemandWatchdogBackoffTest {
 
             advanceTimeBy(100L)
             runCurrent()
-            assertTrue(job.isCompleted)
-            assertTrue(expired)
-            assertEquals("SABR demand stalled for 299:50", holder.terminalFailure())
+            assertFalse(job.isCompleted)
+            assertFalse(expired)
+            assertNull(holder.terminalFailure())
+            assertNull(holder.pendingSegmentDemandSummary())
+            job.cancel()
         }
     }
 
@@ -95,9 +100,11 @@ class SabrDemandWatchdogBackoffTest {
 
             advanceTimeBy(100L)
             runCurrent()
-            assertTrue(job.isCompleted)
-            assertTrue(expired)
-            assertEquals("SABR demand stalled for 299:50", holder.terminalFailure())
+            assertFalse(job.isCompleted)
+            assertFalse(expired)
+            assertNull(holder.terminalFailure())
+            assertNull(holder.pendingSegmentDemandSummary())
+            job.cancel()
         }
     }
 
