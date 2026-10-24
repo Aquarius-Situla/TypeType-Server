@@ -16,6 +16,7 @@ import dev.typetype.server.PlaybackTraceLog
 import dev.typetype.server.services.SabrSessionStore
 import dev.typetype.server.services.StreamService
 import dev.typetype.server.services.markServed
+import dev.typetype.server.services.requiresYoutubeSession
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.ApplicationCall
 import io.ktor.server.response.respond
@@ -31,7 +32,9 @@ internal class SabrPlaybackHandler(
     youtubeSessionStreamInfo: (suspend (String, String) -> ExtractionResult<StreamResponse>?)? = null,
 ) {
     private val playbackService = SabrPlaybackSessionService(sabrSessionStore)
-    private val infoResolver = SabrPlaybackInfoResolver(sabrSessionStore, authenticatedSabrInfoService)
+    private val infoResolver = SabrPlaybackInfoResolver(sabrSessionStore, authenticatedSabrInfoService) { videoId ->
+        streamService.getStreamInfo("https://www.youtube.com/watch?v=$videoId").requiresYoutubeSession()
+    }
     private val accessValidator = SabrPlaybackAccessValidator(streamService, youtubeSessionStreamInfo)
     private val prewarmHandoffs = SabrPlaybackPrewarmHandoffs()
 
