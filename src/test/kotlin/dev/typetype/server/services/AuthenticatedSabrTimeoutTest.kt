@@ -1,5 +1,6 @@
 package dev.typetype.server.services
 
+import dev.typetype.server.cache.CacheService
 import dev.typetype.server.models.ExtractionResult
 import dev.typetype.server.models.StreamResponse
 import io.mockk.coEvery
@@ -70,6 +71,7 @@ class AuthenticatedSabrTimeoutTest {
         val service = YoutubeSessionSabrStreamService(
             metadata,
             mockk(relaxed = true),
+            cache = mockk<CacheService>(relaxed = true),
             timeoutMs = 20L,
         )
 
@@ -88,7 +90,7 @@ class AuthenticatedSabrTimeoutTest {
         coEvery { metadata.getStreamInfo(USER_ID, URL) } returns ExtractionResult.Success(stream)
         coEvery { info.oauthStream(USER_ID, VIDEO_ID) } returns null
         coEvery { info.fetch(USER_ID, VIDEO_ID) } returns AuthenticatedSabrInfoResult.TimedOut
-        val service = YoutubeSessionSabrStreamService(metadata, info)
+        val service = YoutubeSessionSabrStreamService(metadata, info, mockk<CacheService>(relaxed = true))
 
         val result = service.getStreamInfo(USER_ID, URL)
 
@@ -105,7 +107,7 @@ class AuthenticatedSabrTimeoutTest {
         coEvery { metadata.getStreamInfo(USER_ID, URL) } returns ExtractionResult.Success(stream)
         coEvery { info.oauthStream(USER_ID, VIDEO_ID) } returns null
         coEvery { info.fetch(USER_ID, VIDEO_ID) } returns AuthenticatedSabrInfoResult.Failed
-        val service = YoutubeSessionSabrStreamService(metadata, info)
+        val service = YoutubeSessionSabrStreamService(metadata, info, mockk<CacheService>(relaxed = true))
 
         val result = service.getStreamInfo(USER_ID, URL)
 
@@ -144,6 +146,7 @@ class AuthenticatedSabrTimeoutTest {
     }
 
     private fun playableInfo(): YoutubeSabrInfo = mockk {
+        every { serverAbrStreamingUrl } returns null
         every { formats } returns listOf(
             mockk {
                 every { isAudio } returns true
