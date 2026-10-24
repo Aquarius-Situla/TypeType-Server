@@ -1,6 +1,7 @@
 package dev.typetype.server
 import dev.typetype.server.cache.DragonflyService
 import dev.typetype.server.services.YoutubeRelatedVideosService
+import dev.typetype.server.services.CachedRelatedVideosService
 import dev.typetype.server.services.AccessControlService
 import dev.typetype.server.services.AccountIdentityService
 import dev.typetype.server.services.AdminManagedAccessService
@@ -188,7 +189,7 @@ class ServiceRegistry(
     val homeRecommendationServices = createHomeRecommendationServices(cache, recommendationPoolResolverDependencies)
     val homeRecommendationService = homeRecommendationServices.recommendationService
     val homeRecommendationWarmupService = homeRecommendationServices.warmupService
-    val youtubeRelatedVideosService = YoutubeRelatedVideosService()
+    val youtubeRelatedVideosService = CachedRelatedVideosService(YoutubeRelatedVideosService(), cache)
     val recommenderServices = RecommenderServices(
         RecommenderDependencies(
             cache, adminSettingsService, historyService, progressService, favoritesService, subscriptionsService,
