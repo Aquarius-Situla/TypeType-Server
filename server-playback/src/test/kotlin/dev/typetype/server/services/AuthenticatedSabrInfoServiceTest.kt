@@ -7,6 +7,8 @@ import io.mockk.mockk
 import io.mockk.verify
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.runBlocking
+import dev.typetype.server.models.ExtractionResult
+import dev.typetype.server.models.StreamResponse
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertThrows
@@ -16,6 +18,35 @@ import dev.typetype.server.sabr.YoutubeSabrFormat
 import dev.typetype.server.sabr.YoutubeSabrInfo
 
 class AuthenticatedSabrInfoServiceTest {
+    @Test
+    fun oauthStreamAndPlaybackShareAuthenticatedCacheEntry() = runBlocking {
+        val sessions = mockk<YoutubeSessionService>()
+        val tokenClient = mockk<TypetypeTokenSabrTokenClient>()
+        val cache = mockk<AuthenticatedSabrInfoCache>()
+        val tvClient = mockk<YoutubeTvOauthPlayerClient>()
+        val prepared = mockk<SabrPreparedInfo>()
+        val streamResponse = mockk<StreamResponse>()
+        val cached = AuthenticatedSabrInfoResult.Ready(prepared, streamResponse)
+        coEvery { sessions.isOauthSession(USER_ID) } returns true
+        coEvery { sessions.oauthAccessToken(USER_ID) } returns "oauth-access-token"
+        coEvery { sessions.markUsed(USER_ID) } returns Unit
+        coEvery { cache.getOrLoad(USER_ID, any(), VIDEO_ID, any()) } returns cached
+        val service = AuthenticatedSabrInfoService(
+            sessions,
+            tokenClient,
+            cache = cache,
+            tvClient = tvClient,
+        )
+
+        val playback = service.fetch(USER_ID, VIDEO_ID)
+        val stream = service.oauthStream(USER_ID, VIDEO_ID) as ExtractionResult.Success
+
+        assertSame(cached, playback)
+        assertSame(streamResponse, stream.data)
+        coVerify(exactly = 2) { cache.getOrLoad(USER_ID, any(), VIDEO_ID, any()) }
+        coVerify(exactly = 0) { tvClient.player(any(), any(), any(), any(), any()) }
+    }
+
     @Test
     fun `connected account uses one authenticated token pair`() = runBlocking {
         val sessions = mockk<YoutubeSessionService>()
@@ -128,6 +159,7 @@ class AuthenticatedSabrInfoServiceTest {
     }
 
     private fun playableInfo(): YoutubeSabrInfo = mockk {
+        every { serverAbrStreamingUrl } returns null
         every { formats } returns listOf(
             mockk<YoutubeSabrFormat> {
                 every { isAudio } returns true
