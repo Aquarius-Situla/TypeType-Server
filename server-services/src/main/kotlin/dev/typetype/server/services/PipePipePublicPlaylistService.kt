@@ -19,8 +19,8 @@ class PipePipePublicPlaylistService : PublicPlaylistService {
             } else null
             val service = runCatching { NewPipe.getServiceByUrl(url) }
                 .getOrElse { return@withContext ExtractionResult.BadRequest("Unsupported playlist URL") }
-            if (service.serviceId != YOUTUBE_SERVICE_ID) {
-                return@withContext ExtractionResult.BadRequest("Public playlists are only supported for YouTube")
+            if (service.serviceId != YOUTUBE_SERVICE_ID && service.serviceId != BILIBILI_SERVICE_ID) {
+                return@withContext ExtractionResult.BadRequest("Public playlists are only supported for YouTube and Bilibili")
             }
 
             runCatching {
