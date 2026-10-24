@@ -33,7 +33,8 @@ internal class SabrPlaybackHandler(
 ) {
     private val playbackService = SabrPlaybackSessionService(sabrSessionStore)
     private val infoResolver = SabrPlaybackInfoResolver(sabrSessionStore, authenticatedSabrInfoService) { videoId ->
-        streamService.getStreamInfo("https://www.youtube.com/watch?v=$videoId").requiresYoutubeSession()
+        authenticatedSabrInfoService != null &&
+            streamService.getStreamInfo("https://www.youtube.com/watch?v=$videoId").requiresYoutubeSession()
     }
     private val accessValidator = SabrPlaybackAccessValidator(streamService, youtubeSessionStreamInfo)
     private val prewarmHandoffs = SabrPlaybackPrewarmHandoffs()
