@@ -45,6 +45,7 @@ paths:
   /channel/playlists: { $ref: ./openapi/paths/channel.yaml#/ChannelPlaylists }
   /podcasts: { $ref: ./openapi/paths/podcasts.yaml#/Podcasts }
   /podcasts/episodes: { $ref: ./openapi/paths/podcasts.yaml#/PodcastEpisodes }
+  /favorites/status: { $ref: ./openapi/paths/favorites.yaml#/FavoriteStatus }
   /playlist: { $ref: ./openapi/paths/playlists.yaml#/Playlist }
   /saved-playlists: { $ref: ./openapi/paths/saved-playlists.yaml#/SavedPlaylists }
   /saved-playlists/{id}: { $ref: ./openapi/paths/saved-playlists.yaml#/SavedPlaylist }
