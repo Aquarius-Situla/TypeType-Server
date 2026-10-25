@@ -20,7 +20,7 @@ class SabrBootstrapStreamServiceTest {
         val prepared = preparedInfo()
         val session = tokenSession(prepared.info, tokenBundle())
         coEvery { sessionStore.rememberPreparedInfo(VIDEO_ID, any()) } returns Unit
-        coEvery { tokenClient.fetchPlaybackSession(VIDEO_ID) } returns session
+        coEvery { tokenClient.fetchPlaybackSessionResult(VIDEO_ID) } returns TokenServiceResult.Success(session)
         val service = SabrBootstrapStreamService(sessionStore, tokenClient, mockk<StreamService>())
 
         val result = service.getStreamInfo(YOUTUBE_URL)
@@ -31,7 +31,7 @@ class SabrBootstrapStreamServiceTest {
         assertEquals(listOf(140), response.audioStreams.map { it.itag })
         coVerify(exactly = 0) { sessionStore.fetchInfo(any(), any()) }
         coVerify(exactly = 1) { sessionStore.rememberPreparedInfo(VIDEO_ID, any()) }
-        coVerify(exactly = 1) { tokenClient.fetchPlaybackSession(VIDEO_ID) }
+        coVerify(exactly = 1) { tokenClient.fetchPlaybackSessionResult(VIDEO_ID) }
     }
 
     @Test
@@ -42,7 +42,7 @@ class SabrBootstrapStreamServiceTest {
         val fresh = tokenBundle().let {
             SabrTokenBundle(it.videoId, it.visitorBoundPoToken, it.visitorBoundPoTokenBytes, "renewed-visitor", it.videoBoundPoToken, it.videoBoundPoTokenBytes)
         }
-        coEvery { tokenClient.fetchPlaybackSession(VIDEO_ID) } returns tokenSession(stale.info, fresh)
+        coEvery { tokenClient.fetchPlaybackSessionResult(VIDEO_ID) } returns TokenServiceResult.Success(tokenSession(stale.info, fresh))
         coEvery { sessionStore.fetchInfo(VIDEO_ID, cachedFirst = true) } returns stale
         val service = SabrBootstrapStreamService(sessionStore, tokenClient, mockk<StreamService>())
 
@@ -58,7 +58,7 @@ class SabrBootstrapStreamServiceTest {
         val tokenClient = mockk<TypetypeTokenYoutubeSessionClient>()
         val prepared = preparedInfo()
         coEvery { sessionStore.fetchInfo(VIDEO_ID, cachedFirst = true) } returns null
-        coEvery { tokenClient.fetchPlaybackSession(VIDEO_ID) } returns tokenSession(prepared.info)
+        coEvery { tokenClient.fetchPlaybackSessionResult(VIDEO_ID) } returns TokenServiceResult.Success(tokenSession(prepared.info))
         val service = SabrBootstrapStreamService(sessionStore, tokenClient, mockk<StreamService>())
 
         val result = service.getStreamInfo(YOUTUBE_URL)

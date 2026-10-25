@@ -34,6 +34,7 @@ import dev.typetype.server.services.PipePipeSuggestionService
 import dev.typetype.server.services.PipePipeTrendingService
 import dev.typetype.server.services.ProviderMediaHandleService
 import dev.typetype.server.services.SabrFallbackStreamService
+import dev.typetype.server.services.SabrBootstrapCache
 import dev.typetype.server.services.SabrBootstrapStreamService
 import dev.typetype.server.services.SabrSessionStore
 import dev.typetype.server.services.SignedHlsManifestTokenService
@@ -171,7 +172,12 @@ internal class ExtractionServiceRegistry(
         YouTubeSubtitleCache(cache),
     )
     val youtubeSabrBootstrapStreamService = YoutubeScopedStreamService(
-        SabrBootstrapStreamService(sabrSessionStore, tokenYoutubeSessionClient, liveHlsStreamService),
+        SabrBootstrapStreamService(
+            sabrSessionStore,
+            tokenYoutubeSessionClient,
+            liveHlsStreamService,
+            SabrBootstrapCache(sabrSessionStore.sessionEpoch::current, sabrSessionStore::hasPreparedInfo),
+        ),
     )
     val nicoNicoStreamService = CachedStreamService(directPipePipeStreamService, cache, "stream-niconico:v1")
     val bilibiliStreamService = CachedStreamService(directPipePipeStreamService, cache, "stream-bilibili:v3")

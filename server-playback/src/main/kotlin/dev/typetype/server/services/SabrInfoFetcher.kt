@@ -76,6 +76,8 @@ class SabrInfoFetcher(
 
     suspend fun invalidatePlayback(videoId: String): Unit = repository.invalidatePlayback(videoId)
 
+    fun hasPreparedInfo(videoId: String): Boolean = repository.local(videoId, startTimeMs = 0L) != null
+
     suspend fun recoverProtectedPlayback(videoId: String, rejectedVisitorData: String?): Unit =
         withContext(Dispatchers.IO) {
             protectedContextRecovery.refreshIfRejected(videoId, rejectedVisitorData)

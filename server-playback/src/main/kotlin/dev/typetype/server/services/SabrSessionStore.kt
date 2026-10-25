@@ -24,7 +24,7 @@ class SabrSessionStore(
     private val tokenClient: TypetypeTokenSabrTokenClient = TypetypeTokenSabrTokenClient(tokenServiceUrl),
     private val sessionClient: TypetypeTokenYoutubeSessionClient = TypetypeTokenYoutubeSessionClient(tokenServiceUrl),
     internal val initCache: CacheService? = null,
-    sessionEpoch: ProviderSessionEpoch = tokenClient.sessionEpoch,
+    val sessionEpoch: ProviderSessionEpoch = tokenClient.sessionEpoch,
 ) {
     private val registry = SabrSessionRegistry()
     private val segmentCache = SabrSegmentCache()
@@ -160,6 +160,7 @@ class SabrSessionStore(
         infoFetcher.rememberExtractedInfo(videoId, info)
     suspend fun rememberPreparedInfo(videoId: String, prepared: SabrPreparedInfo): Unit = infoFetcher.rememberPreparedInfo(videoId, prepared)
     suspend fun invalidatePlaybackInfo(videoId: String): Unit = infoFetcher.invalidatePlayback(videoId)
+    fun hasPreparedInfo(videoId: String): Boolean = infoFetcher.hasPreparedInfo(videoId)
 
     suspend fun recoverProtectedPlaybackInfo(holder: SabrSessionHolder): Unit =
         infoFetcher.recoverProtectedPlayback(
