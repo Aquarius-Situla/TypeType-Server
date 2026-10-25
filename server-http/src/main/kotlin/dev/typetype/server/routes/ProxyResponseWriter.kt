@@ -8,8 +8,13 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.ApplicationCall
 import io.ktor.server.response.respond
 import io.ktor.server.response.respondOutputStream
+import io.ktor.utils.io.ClosedByteChannelException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
+import java.io.InputStream
+import java.io.OutputStream
 
 internal suspend fun ApplicationCall.respondProxyResult(
     result: ExtractionResult<ProxyResponse>,
@@ -28,10 +33,18 @@ private suspend fun ApplicationCall.respondProxy(proxy: ProxyResponse, contentTy
         proxy.acceptRanges?.let { response.headers.append("Accept-Ranges", it) }
         proxy.cacheControl?.let { response.headers.append("Cache-Control", it, safeOnly = false) }
         respondOutputStream(contentType, status, proxy.contentLength) {
-            withContext(Dispatchers.IO) { proxy.stream.copyTo(this@respondOutputStream, PROXY_COPY_BUFFER_SIZE) }
+            copyProxyStream(proxy.stream, this@respondOutputStream)
         }
     } finally {
         proxy.close()
+    }
+}
+
+internal suspend fun copyProxyStream(source: InputStream, destination: OutputStream) {
+    try {
+        withContext(Dispatchers.IO) { source.copyTo(destination, PROXY_COPY_BUFFER_SIZE) }
+    } catch (_: ClosedByteChannelException) {
+        currentCoroutineContext().ensureActive()
     }
 }
 
