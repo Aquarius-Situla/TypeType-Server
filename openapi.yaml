@@ -66,6 +66,7 @@ paths:
   /notifications/read-all: { $ref: ./openapi/paths/notifications.yaml#/NotificationsReadAll }
   /notifications/{notificationId}/read: { $ref: ./openapi/paths/notifications.yaml#/NotificationsRead }
   /notifications/channel-preferences: { $ref: ./openapi/paths/push-notifications.yaml#/ChannelNotificationPreferences }
+  /notifications/channel-preferences/bulk: { $ref: ./openapi/paths/push-notifications.yaml#/ChannelNotificationPreferencesBulk }
   /notifications/push/devices: { $ref: ./openapi/paths/push-notifications.yaml#/PushDevices }
   /notifications/push/devices/{deviceId}: { $ref: ./openapi/paths/push-notifications.yaml#/PushDevice }
   /notifications/push/deliveries/acknowledgement: { $ref: ./openapi/paths/push-notifications.yaml#/PushDeliveryAcknowledgement }

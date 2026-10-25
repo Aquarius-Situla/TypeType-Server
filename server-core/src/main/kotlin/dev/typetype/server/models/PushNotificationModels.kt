@@ -44,6 +44,12 @@ data class ChannelNotificationPreferenceRequest(
 )
 
 @Serializable
+data class ChannelNotificationPreferencesBulkRequest(
+    val enabled: Boolean,
+    val channelUrls: List<String>? = null,
+)
+
+@Serializable
 data class ChannelNotificationPreference(
     val channelUrl: String,
     val enabled: Boolean,
