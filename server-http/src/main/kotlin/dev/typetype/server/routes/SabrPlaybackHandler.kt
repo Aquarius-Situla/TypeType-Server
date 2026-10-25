@@ -152,6 +152,7 @@ internal class SabrPlaybackHandler(
             result.holder.toRetryPlaybackResponse(result.status, RETRY_AFTER_MS),
         )
         is SabrPlaybackSegmentResult.Stale -> call.respond(HttpStatusCode.Conflict, ErrorResponse("Stale SABR playback generation"))
+        is SabrPlaybackSegmentResult.Failed -> call.respondSabrFailure(SabrFailureResponse.of(result.holder))
         SabrPlaybackSegmentResult.InvalidSequence -> call.respond(HttpStatusCode.BadRequest, ErrorResponse("Invalid seq"))
         SabrPlaybackSegmentResult.InvalidGeneration -> call.respond(HttpStatusCode.BadRequest, ErrorResponse("Invalid generation"))
     }

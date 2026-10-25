@@ -39,6 +39,9 @@ class SabrSessionPumpLoop(
                     return
                 }
                 delay(SabrPumpPolicy.ERROR_RETRY_MS)
+            } catch (error: SabrUpstreamUnauthorizedException) {
+                unauthorizedRecovery.fail(holder, error)
+                return
             } catch (error: SabrRecoverableException) {
                 holder.failTerminal(sabrRecoverableFailureMessage(error.message))
                 return

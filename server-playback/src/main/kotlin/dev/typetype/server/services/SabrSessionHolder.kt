@@ -38,7 +38,7 @@ class SabrSessionHolder(
     private val expectedLive = AtomicBoolean(false)
     private val activeGeneration = AtomicLong(initialGeneration.coerceAtLeast(0L))
     private val segmentMemory = SabrMemorySegmentCache(SABR_MAX_SEGMENT_MEMORY_BYTES)
-    private val playbackStatus = SabrPlaybackStatus()
+    val playbackStatus = SabrPlaybackStatus()
     private val requestedSeekTimeMs = AtomicLong(-1L)
     @Volatile var initialWindowReady: Boolean = false
     @Volatile private var playerTimeMs: Long = 0L
@@ -193,7 +193,7 @@ class SabrSessionHolder(
 
     fun networkFailure(): String? = playbackStatus.networkFailure()
 
-    fun failTerminal(message: String?): Unit = playbackStatus.failTerminal(message)
+    fun failTerminal(message: String?, kind: SabrFailureKind = SabrFailureKind.UNKNOWN): Unit = playbackStatus.failTerminal(message, kind)
 
     fun terminalFailure(): String? = playbackStatus.terminalFailure()
 

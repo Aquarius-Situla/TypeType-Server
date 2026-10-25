@@ -4,8 +4,8 @@ import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
 import org.junit.jupiter.api.Assertions.assertThrows
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
-import dev.typetype.server.sabr.SabrRecoverableException
 import dev.typetype.server.sabr.YoutubeSabrInfo
 import dev.typetype.server.sabr.YoutubeSabrSession
 import dev.typetype.server.sabr.YoutubeSabrStreamState
@@ -16,8 +16,9 @@ class SabrUnauthorizedResponseRecoveryTest {
         val (holder, state) = holder(visitorData = "visitor-a", currentToken = byteArrayOf(1))
         val recovery = SabrUnauthorizedResponseRecovery { bundle("visitor-b", byteArrayOf(2)) }
 
-        assertThrows(SabrRecoverableException::class.java) { recovery.verify(holder) }
+        val error = assertThrows(SabrUpstreamUnauthorizedException::class.java) { recovery.verify(holder) }
 
+        assertTrue(error.providerSessionChanged)
         verify(exactly = 0) { state.setPoToken(any()) }
     }
 
@@ -27,7 +28,7 @@ class SabrUnauthorizedResponseRecoveryTest {
         val (holder, state) = holder(visitorData = "visitor-a", currentToken = token)
         val recovery = SabrUnauthorizedResponseRecovery { bundle("visitor-a", token) }
 
-        assertThrows(SabrRecoverableException::class.java) { recovery.verify(holder) }
+        assertThrows(SabrUpstreamUnauthorizedException::class.java) { recovery.verify(holder) }
 
         verify(exactly = 0) { state.setPoToken(any()) }
     }

@@ -126,11 +126,16 @@ class SabrPlaybackSessionService(private val sessionStore: SabrSessionStore) {
         if (generation > activeGeneration) return SabrPlaybackSegmentResult.InvalidGeneration
         val request = SabrSegmentRequest.initialization(format)
         if (generation < activeGeneration) return staleMedia(holder, request)
+        if (holder.hasFailed()) return SabrPlaybackSegmentResult.Failed(holder)
         val bytes = withTimeoutOrNull(timeoutMs) { sessionStore.fetchInitializationData(holder, format) }
-        return if (bytes == null) SabrPlaybackSegmentResult.Retry(holder, PREPARING) else {
-            SabrPlaybackSegmentResult.Ready(format.mimeType.orEmpty(), bytes)
+        return when {
+            bytes != null -> SabrPlaybackSegmentResult.Ready(format.mimeType.orEmpty(), bytes)
+            holder.hasFailed() -> SabrPlaybackSegmentResult.Failed(holder)
+            else -> SabrPlaybackSegmentResult.Retry(holder, PREPARING)
         }
     }
+
+    private fun SabrSessionHolder.hasFailed(): Boolean = terminalFailure() != null || networkFailure() != null
 
     suspend fun fetchMedia(
         holder: SabrSessionHolder,

@@ -19,7 +19,7 @@ internal suspend fun fetchSabrInitializationSegment(
         segmentCache?.put(holder, segment)
         return@withLock segment
     }
-    if (holder.session.isBeyondEnd(request)) return@withLock null
+    if (holder.session.isBeyondEnd(request) || holder.playbackState() == SabrPlaybackState.TERMINAL) return@withLock null
     val requestNumber = holder.session.requestNumber
     val result = runCatchingNonCancellation {
         holder.session.prepareForInitialization(request.format)
@@ -31,28 +31,12 @@ internal suspend fun fetchSabrInitializationSegment(
         status != null &&
         (result.isFailure || result.getOrNull() == null)
     ) {
-        initFetcherLogger.info(
-            "sabr_init event=unauthorized_retry videoId={} itag={} httpStatus={}",
-            holder.key.videoId,
-            request.format.itag,
-            status,
-        )
-        runCatchingNonCancellation {
-            unauthorizedRecovery.verify(holder)
-            holder.session.prepareForInitialization(request.format)
-            holder.withPlayerContext { fetchSegment(request, localization) }
-        }.also { retry ->
-            initFetcherLogger.info(
-                "sabr_init event=unauthorized_retry_complete videoId={} itag={} result={}",
-                holder.key.videoId,
-                request.format.itag,
-                if (retry.getOrNull() == null) "miss" else "hit",
-            )
-        }
+        retryUnauthorized(holder, request, localization, unauthorizedRecovery, status)
     } else {
         result
     }
     recovered.onFailure { error ->
+        if (error is SabrUpstreamUnauthorizedException) unauthorizedRecovery.fail(holder, error)
         initFetcherLogger.warn(
             "sabr_init_trace videoId={} trace={}",
             holder.key.videoId,
@@ -73,6 +57,38 @@ internal suspend fun fetchSabrInitializationSegment(
             if (markServed) holder.markServed(it)
             segmentCache?.put(holder, it)
         }
+}
+
+private fun retryUnauthorized(
+    holder: SabrSessionHolder,
+    request: SabrSegmentRequest,
+    localization: Localization,
+    unauthorizedRecovery: SabrUnauthorizedResponseRecovery,
+    status: Int,
+): Result<SabrMediaSegment?> {
+    initFetcherLogger.info(
+        "sabr_init event=unauthorized_retry videoId={} itag={} httpStatus={}",
+        holder.key.videoId,
+        request.format.itag,
+        status,
+    )
+    val retry = runCatchingNonCancellation {
+        unauthorizedRecovery.verify(holder)
+        val requestNumber = holder.session.requestNumber
+        holder.session.prepareForInitialization(request.format)
+        val segment = runCatchingNonCancellation { holder.withPlayerContext { fetchSegment(request, localization) } }
+        val stillRefused = SabrUnauthorizedResponseRecovery.latestUnauthorizedStatus(holder.session.diagnosticTrace)
+            ?.takeIf { holder.session.requestNumber > requestNumber }
+        if (stillRefused != null && segment.getOrNull() == null) throw SabrUpstreamUnauthorizedException(stillRefused)
+        segment.getOrThrow()
+    }
+    initFetcherLogger.info(
+        "sabr_init event=unauthorized_retry_complete videoId={} itag={} result={}",
+        holder.key.videoId,
+        request.format.itag,
+        if (retry.getOrNull() == null) "miss" else "hit",
+    )
+    return retry
 }
 
 private val initFetcherLogger = LoggerFactory.getLogger("SabrInitializationSegmentFetcher")

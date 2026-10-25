@@ -11,7 +11,7 @@ class SabrSessionPump(
     private val segmentCache: SabrSegmentCache? = null,
     refreshPoToken: (SabrSessionHolder) -> SabrTokenBundle? = { null },
 ) {
-    private val unauthorizedRecovery = SabrUnauthorizedResponseRecovery(refreshPoToken)
+    private val unauthorizedRecovery = SabrUnauthorizedResponseRecovery(refreshPoToken = refreshPoToken)
     private val loop = SabrSessionPumpLoop(
         unauthorizedRecovery = unauthorizedRecovery,
         onResolved = { holder, segment -> segmentCache?.put(holder, segment) },
