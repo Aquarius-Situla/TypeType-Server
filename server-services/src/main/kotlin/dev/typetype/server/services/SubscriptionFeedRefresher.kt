@@ -17,7 +17,7 @@ class SubscriptionFeedRefresher(
         val previous = store.current(userId)
         logger.info("subscription_feed event=refresh_started user={} requestId={}", userKey(userId), requestId ?: "none")
         val subscriptions = subscriptionsService.getAll(userId)
-        val result = builder.build(subscriptions)
+        val result = builder.build(subscriptions, previous)
         if (store.invalidationToken(userId) != invalidation) return true
         val valid = result.successfulSources > 0 || subscriptions.isEmpty()
         if (!valid) {

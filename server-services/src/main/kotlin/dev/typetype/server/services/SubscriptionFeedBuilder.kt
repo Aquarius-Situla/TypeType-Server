@@ -14,17 +14,21 @@ import java.net.URI
 class SubscriptionFeedBuilder(private val channelVideos: ChannelVideosSource) {
     private val semaphore = Semaphore(SubscriptionFeedSettings.maxConcurrentFetches)
 
-    suspend fun build(subscriptions: List<SubscriptionItem>): SubscriptionFeedBuildResult = coroutineScope {
+    suspend fun build(
+        subscriptions: List<SubscriptionItem>,
+        previous: SubscriptionFeedSnapshot? = null,
+    ): SubscriptionFeedBuildResult = coroutineScope {
+        val carryOver = SubscriptionFeedCarryOver(previous)
         val outcomes = subscriptions.map { subscription ->
             async {
                 try {
-                    fetchSubscription(subscription.channelUrl)
+                    fetchSubscription(subscription.channelUrl, carryOver)
                 } catch (error: CancellationException) {
                     throw error
                 } catch (_: Throwable) {
                     SubscriptionSourceResult(
                         channelUrl = subscription.channelUrl,
-                        videos = emptyList(),
+                        videos = carryOver.videos(subscription.channelUrl),
                         successfulSources = 0,
                         failedSources = 1,
                     )
@@ -49,16 +53,24 @@ class SubscriptionFeedBuilder(private val channelVideos: ChannelVideosSource) {
         )
     }
 
-    private suspend fun fetchSubscription(channelUrl: String): SubscriptionSourceResult = coroutineScope {
+    private suspend fun fetchSubscription(
+        channelUrl: String,
+        carryOver: SubscriptionFeedCarryOver,
+    ): SubscriptionSourceResult = coroutineScope {
         val channel = async { fetchVideos(channelUrl) }
         val live = if (isYoutubeUrl(channelUrl)) async { fetchVideos(channelUrl.toLivestreamsTabUrl()) } else null
         val channelResult = channel.await()
         val liveResult = live?.await()
-        val videos = if (liveResult == null) {
+        val fetched = if (liveResult == null) {
             channelResult.videos
         } else {
             channelResult.videos.filterNot(VideoItem::isLive) + liveResult.videos.map { it.asLiveContent() }
         }
+        val channelMissing = !channelResult.success || channelResult.videos.isEmpty()
+        val liveMissing = if (liveResult == null) channelMissing else !liveResult.success
+        val carried = carryOver.videos(channelUrl).filter { if (it.isLiveContent) liveMissing else channelMissing }
+        val fetchedKeys = fetched.mapTo(HashSet(), VideoItem::subscriptionFeedKey)
+        val videos = fetched + carried.filterNot { it.subscriptionFeedKey() in fetchedKeys }
         val results = listOfNotNull(channelResult, liveResult)
         SubscriptionSourceResult(
             channelUrl = channelUrl,
