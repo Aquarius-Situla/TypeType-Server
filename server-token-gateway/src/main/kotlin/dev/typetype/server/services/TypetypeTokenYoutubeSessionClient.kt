@@ -1,26 +1,21 @@
 package dev.typetype.server.services
 
-import com.grack.nanojson.JsonParser
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import okhttp3.Call
 import okhttp3.Callback
-import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.Response
 import org.json.JSONObject
-import org.schabi.newpipe.extractor.services.youtube.YoutubeParsingHelper
-import dev.typetype.server.sabr.SabrAdapter
 import dev.typetype.server.PLAYBACK_TRACE_ID_HEADER
 import dev.typetype.server.REQUEST_ID_HEADER
 import dev.typetype.server.PlaybackTraceLog
 import dev.typetype.server.currentPlaybackTraceId
 import dev.typetype.server.currentRequestId
-import dev.typetype.server.sabr.YoutubeSabrClientProfile
 import dev.typetype.server.sabr.YoutubeSabrInfo
 import java.io.IOException
 import java.net.URLEncoder
@@ -159,30 +154,6 @@ class TypetypeTokenYoutubeSessionClient(
         session.toPlaybackSession(videoId)
     }
 
-    private fun JSONObject.toPlaybackSession(videoId: String): TokenYoutubeSession? {
-        val session = this
-        val info = session.toSabrInfo(videoId) ?: return null
-        val metadata = session.optJSONObject("metadata") ?: JSONObject()
-        return TokenYoutubeSession(
-            info = info,
-            token = SabrTokenBundle.fromResponse(videoId, session),
-            title = metadata.optString("title", session.optString("title")),
-            author = metadata.optString("author"),
-            channelId = metadata.optString("channelId"),
-            channelAvatarUrl = metadata.optString("channelAvatarUrl"),
-            description = metadata.optString("description"),
-            durationMs = metadata.optLong("durationMs", session.optLong("durationMs")),
-            viewCount = metadata.optLong("viewCount"),
-            thumbnailUrl = metadata.optString("thumbnailUrl"),
-            tags = metadata.optJSONArray("tags")?.let { tags ->
-                List(tags.length()) { index -> tags.optString(index) }.filter { it.isNotBlank() }
-            }.orEmpty(),
-            isLive = metadata.optBoolean("isLive"),
-            isLiveContent = metadata.optBoolean("isLiveContent"),
-            hlsUrl = session.optString("hlsManifestUrl").trim(),
-        )
-    }
-
     private suspend fun fetchSession(videoId: String, isolated: Boolean = false): JSONObject? {
         val encodedVideoId = URLEncoder.encode(videoId, StandardCharsets.UTF_8)
         val url = "${tokenServiceUrl.trimEnd('/')}/youtube/sabr/session?videoId=$encodedVideoId&client=MWEB" +
@@ -214,84 +185,4 @@ class TypetypeTokenYoutubeSessionClient(
             })
         }
     }
-
-    private fun JSONObject.toSabrInfo(videoId: String): YoutubeSabrInfo? = runCatching {
-        val playerResponse = JSONObject()
-            .put("responseContext", JSONObject().put("visitorData", getString("visitorData")))
-            .put(
-                "streamingData",
-                JSONObject()
-                    .put(
-                        "serverAbrStreamingUrl",
-                        optString("rawServerAbrStreamingUrl").ifBlank { getString("serverAbrStreamingUrl") },
-                    )
-                    .put("adaptiveFormats", getJSONArray("adaptiveFormats")),
-            )
-            .put(
-                "playerConfig",
-                JSONObject().put(
-                    "mediaCommonConfig",
-                    JSONObject().put(
-                        "mediaUstreamerRequestConfig",
-                        JSONObject().put("videoPlaybackUstreamerConfig", getString("videoPlaybackUstreamerConfig")),
-                    ),
-                ),
-            )
-        val info = SabrAdapter.fromPlayerResponse(
-            videoId,
-            YoutubeSabrClientProfile.MWEB,
-            YoutubeParsingHelper.generateContentPlaybackNonce(),
-            JsonParser.`object`().from(playerResponse.toString()),
-        )
-        val playbackUrl = optString("serverAbrStreamingUrl").takeIf { it.isNotBlank() }
-        val parsedPlaybackUrl = playbackUrl?.toHttpUrlOrNull()
-        val clientVersion = parsedPlaybackUrl
-            ?.queryParameter("cver")
-            ?.takeIf { it.isNotBlank() }
-        val playbackCpn = parsedPlaybackUrl
-            ?.queryParameter("cpn")
-            ?.takeIf { it.isNotBlank() }
-        if (playbackUrl != null && clientVersion != null) {
-            SabrAdapter.withPlaybackIdentity(
-                info,
-                playbackUrl,
-                clientVersion,
-                playbackCpn ?: info.cpn,
-                getString("visitorData"),
-            )
-        } else {
-            info
-        }
-    }.getOrNull()
-
 }
-
-data class TokenSessionBinding(
-    val cookies: String,
-    val poToken: String,
-    val authUser: Int,
-)
-
-data class TokenDeviceStart(
-    val userCode: String,
-    val verificationUrl: String,
-    val expiresAt: Long,
-    val intervalSeconds: Int,
-)
-
-data class TokenDevicePoll(
-    val status: String,
-    val tokens: TokenDeviceTokens?,
-)
-
-data class TokenTvPoToken(
-    val poToken: String,
-    val visitorData: String,
-    val livingRoomPoTokenId: String,
-)
-
-data class TokenDeviceTokens(
-    val accessToken: String,
-    val refreshToken: String?,
-    val expiresIn: Long,
-)
