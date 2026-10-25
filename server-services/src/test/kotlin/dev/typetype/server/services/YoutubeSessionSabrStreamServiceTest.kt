@@ -10,10 +10,13 @@ import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.yield
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
+import java.util.concurrent.atomic.AtomicInteger
 
 class YoutubeSessionSabrStreamServiceTest {
     @Test
@@ -66,6 +69,33 @@ class YoutubeSessionSabrStreamServiceTest {
 
         assertEquals(first.await(), second.await())
         coVerify(exactly = 1) { infoService.oauthStream(USER_ID, VIDEO_ID) }
+    }
+
+    @Test
+    fun `a waiter still gets the stream when the caller that started the load leaves`() = runTest {
+        val metadataService = mockk<YoutubeSessionStreamService>(relaxed = true)
+        val infoService = mockk<AuthenticatedSabrInfoService>()
+        val started = CompletableDeferred<Unit>()
+        val calls = AtomicInteger()
+        val expected = ExtractionResult.Success(testStreamResponse())
+        coEvery { metadataService.getStreamInfo(USER_ID, YOUTUBE_URL) } returns null
+        coEvery { infoService.oauthStream(USER_ID, VIDEO_ID) } coAnswers {
+            if (calls.incrementAndGet() == 1) {
+                started.complete(Unit)
+                awaitCancellation()
+            }
+            expected
+        }
+        val service = YoutubeSessionSabrStreamService(metadataService, infoService, FakeCacheService())
+
+        val leader = launch { service.getStreamInfo(USER_ID, YOUTUBE_URL) }
+        started.await()
+        val waiter = async { service.getStreamInfo(USER_ID, YOUTUBE_URL) }
+        yield()
+        leader.cancel()
+
+        assertEquals(expected, waiter.await())
+        assertEquals(2, calls.get())
     }
 
     @Test

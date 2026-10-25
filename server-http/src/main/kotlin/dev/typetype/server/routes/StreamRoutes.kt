@@ -23,7 +23,6 @@ import io.ktor.server.routing.get
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.withContext
 
-
 fun Route.streamRoutes(
     streamService: StreamService,
     authService: AuthService? = null,
@@ -40,7 +39,7 @@ fun Route.streamRoutes(
     bilibiliSessionStreamInfo: (suspend (String, String) -> ExtractionResult<StreamResponse>?)? = null,
     youtubeRelatedVideos: (suspend (String) -> ExtractionResult<List<VideoItem>>)? = null,
     previewsEnabled: Boolean = StreamPreview.enabledByDefault,
-    sabrStreamContractFilter: (suspend (String, StreamResponse) -> StreamResponse)? = null,
+    sabrStreamContractFilter: (suspend (String, StreamResponse) -> StreamResponse?)? = null,
 ) {
     val dependencies = StreamRouteDependencies(
         authService = authService,
@@ -165,17 +164,10 @@ private fun Route.streamRoute(
                     filtered
                 } else {
                     dependencies.sabrStreamContractFilter.invoke(url, filtered)
+                        ?: return@get call.respondNoPlayableStreams(upstreamOutage = true)
                 }
                 if (!data.hasPlayableSource()) {
-                    return@get call.respond(
-                        if (deliveryMode.isYoutube()) {
-                            HttpStatusCode.BadGateway
-                        } else HttpStatusCode.UnprocessableEntity,
-                        ErrorResponse(
-                            "No compatible stream is available for this video",
-                            "no_playable_streams",
-                        ),
-                    )
+                    return@get call.respondNoPlayableStreams(upstreamOutage = false)
                 }
                 val publicData = try {
                     dependencies.providerMediaHandleService?.let { service ->
@@ -184,13 +176,7 @@ private fun Route.streamRoute(
                 } catch (error: CancellationException) {
                     throw error
                 } catch (error: Exception) {
-                    return@get call.respond(
-                        HttpStatusCode.BadGateway,
-                        ErrorResponse(
-                            error.message ?: "Provider media handle service failed",
-                            "media_handle_unavailable",
-                        ),
-                    )
+                    return@get call.respondMediaHandleFailure(error)
                 }
                 call.response.headers.append(
                     HttpHeaders.CacheControl,
@@ -198,16 +184,8 @@ private fun Route.streamRoute(
                 )
                 call.respond(publicData)
             }
-            is ExtractionResult.BadRequest -> call.respond(
-                if (deliveryMode.isYoutube()) youtubeBadRequestStatus(result.code) else HttpStatusCode.BadRequest,
-                ErrorResponse(result.message, result.code),
-            )
-            is ExtractionResult.Failure -> call.respond(
-                if (deliveryMode.isYoutube()) {
-                    youtubeExtractionFailureStatus(result)
-                } else HttpStatusCode.UnprocessableEntity,
-                ErrorResponse(result.message, result.code),
-            )
+            is ExtractionResult.BadRequest -> call.respondExtractionBadRequest(result, deliveryMode.isYoutube())
+            is ExtractionResult.Failure -> call.respondExtractionFailure(result, deliveryMode.isYoutube())
         }
     }
 }

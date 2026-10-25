@@ -7,14 +7,12 @@ import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.ApplicationCall
 import io.ktor.server.response.respond
-import io.ktor.server.response.respondOutputStream
-import io.ktor.utils.io.ClosedByteChannelException
+import io.ktor.server.response.respondBytesWriter
+import io.ktor.utils.io.ByteWriteChannel
+import io.ktor.utils.io.writeFully
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.currentCoroutineContext
-import kotlinx.coroutines.ensureActive
-import kotlinx.coroutines.withContext
+import kotlinx.coroutines.runInterruptible
 import java.io.InputStream
-import java.io.OutputStream
 
 internal suspend fun ApplicationCall.respondProxyResult(
     result: ExtractionResult<ProxyResponse>,
@@ -32,20 +30,22 @@ private suspend fun ApplicationCall.respondProxy(proxy: ProxyResponse, contentTy
         proxy.contentRange?.let { response.headers.append("Content-Range", it) }
         proxy.acceptRanges?.let { response.headers.append("Accept-Ranges", it) }
         proxy.cacheControl?.let { response.headers.append("Cache-Control", it, safeOnly = false) }
-        respondOutputStream(contentType, status, proxy.contentLength) {
-            copyProxyStream(proxy.stream, this@respondOutputStream)
+        respondBytesWriter(contentType, status, proxy.contentLength) {
+            copyProxyStream(proxy.stream, this)
         }
     } finally {
         proxy.close()
     }
 }
 
-internal suspend fun copyProxyStream(source: InputStream, destination: OutputStream) {
-    try {
-        withContext(Dispatchers.IO) { source.copyTo(destination, PROXY_COPY_BUFFER_SIZE) }
-    } catch (_: ClosedByteChannelException) {
-        currentCoroutineContext().ensureActive()
+internal suspend fun copyProxyStream(source: InputStream, destination: ByteWriteChannel): Unit = stopOnClientDisconnect {
+    val buffer = ByteArray(PROXY_COPY_BUFFER_SIZE)
+    while (true) {
+        val read = runInterruptible(Dispatchers.IO) { source.read(buffer) }
+        if (read < 0) break
+        destination.writeFully(buffer, 0, read)
     }
+    destination.flush()
 }
 
 private const val PROXY_COPY_BUFFER_SIZE = 64 * 1024
