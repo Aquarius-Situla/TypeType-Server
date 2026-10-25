@@ -10,6 +10,7 @@ import dev.typetype.server.REQUEST_ID_HEADER
 import dev.typetype.server.PlaybackTraceLog
 import dev.typetype.server.currentPlaybackTraceId
 import dev.typetype.server.currentRequestId
+import java.io.IOException
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 
@@ -19,13 +20,18 @@ class TypetypeTokenSabrTokenClient(
 ) {
     internal val client: OkHttpClient = TypetypeTokenHttpClient.bounded(client)
 
-    fun fetch(videoId: String, forceRefresh: Boolean = false, refreshVideo: Boolean = false): SabrTokenBundle? {
-        return fetch(videoId, forceRefresh, refreshVideo, logIdentifier = true)
-    }
+    fun fetch(videoId: String, forceRefresh: Boolean = false, refreshVideo: Boolean = false): SabrTokenBundle? =
+        fetchResult(videoId, forceRefresh, refreshVideo).valueOrNull()
+
+    fun fetchResult(
+        videoId: String,
+        forceRefresh: Boolean = false,
+        refreshVideo: Boolean = false,
+    ): TokenServiceResult<SabrTokenBundle> = fetch(videoId, forceRefresh, refreshVideo, logIdentifier = true)
 
     // The Token minter accepts an opaque binding even though its internal query parameter is named videoId.
     fun fetchBoundToken(binding: String): String? =
-        fetch(binding, forceRefresh = false, refreshVideo = false, logIdentifier = false)?.videoBoundPoToken
+        fetch(binding, forceRefresh = false, refreshVideo = false, logIdentifier = false).valueOrNull()?.videoBoundPoToken
 
     fun fetchSession(
         videoId: String,
@@ -66,7 +72,7 @@ class TypetypeTokenSabrTokenClient(
         forceRefresh: Boolean,
         refreshVideo: Boolean,
         logIdentifier: Boolean,
-    ): SabrTokenBundle? {
+    ): TokenServiceResult<SabrTokenBundle> {
         val url = buildUrl(binding, forceRefresh, refreshVideo)
         val target = if (logIdentifier) " for $binding" else " for session binding"
         val startedAt = System.nanoTime()
@@ -74,23 +80,18 @@ class TypetypeTokenSabrTokenClient(
             currentRequestId()?.let { header(REQUEST_ID_HEADER, it) }
             currentPlaybackTraceId()?.let { header(PLAYBACK_TRACE_ID_HEADER, it) }
         }.build()
-        return try {
+        val result = try {
             client.newCall(request).execute().use { resp ->
                 PlaybackTraceLog.record("token_http", "endpoint=potoken status=${resp.code} durationMs=${(System.nanoTime() - startedAt) / 1_000_000}")
-                if (!resp.isSuccessful) {
-                    System.err.println("[TypetypeTokenSabrTokenClient] /potoken HTTP ${resp.code}$target")
-                    return null
-                }
-                SabrTokenBundle.fromResponse(binding, JSONObject(resp.body.string())).also {
-                    if (it == null) {
-                        System.err.println("[TypetypeTokenSabrTokenClient] incomplete token response$target")
-                    }
-                }
+                TokenServiceResponses.read(resp) { SabrTokenBundle.fromResponse(binding, it) }
             }
-        } catch (e: Exception) {
-            System.err.println("[TypetypeTokenSabrTokenClient] fetch failed$target: ${e.message}")
-            null
+        } catch (error: IOException) {
+            TokenServiceResponses.failure(error)
         }
+        if (result is TokenServiceResult.Failure) {
+            System.err.println("[TypetypeTokenSabrTokenClient] /potoken ${result.reason} status=${result.status}$target: ${result.error}")
+        }
+        return result
     }
 
     private fun buildUrl(videoId: String, forceRefresh: Boolean, refreshVideo: Boolean): String {
