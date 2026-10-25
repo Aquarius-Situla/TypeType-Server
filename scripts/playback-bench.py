@@ -108,6 +108,7 @@ def youtube_run(client, url, deadline):
         "playerTimeMs": 0,
         "videoItag": created["videoItag"],
         "audioItag": created["audioItag"],
+        "audioTrackId": created.get("audioTrackId"),
         "bufferGoalMs": 10_000,
         "backBufferMs": 0,
     }
