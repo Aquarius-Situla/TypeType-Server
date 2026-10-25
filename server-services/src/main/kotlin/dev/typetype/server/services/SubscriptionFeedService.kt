@@ -31,6 +31,7 @@ class SubscriptionFeedService(
     private val selections = SubscriptionFeedSelectionStore(cache, subscriptionsService)
     private val refresher = SubscriptionFeedRefresher(subscriptionsService, store, SubscriptionFeedBuilder(channelService), clock)
     private val refreshJobs = ConcurrentHashMap<String, Job>()
+    private val planner = SubscriptionFeedRefreshPlanner(clock)
 
     suspend fun getPage(
         userId: String,
@@ -42,13 +43,11 @@ class SubscriptionFeedService(
         selection: SubscriptionSelection = SubscriptionSelection.All,
         requestId: String? = currentRequestId(),
     ): SubscriptionFeedPageResult {
+        planner.touch(userId)
         val current = store.current(userId)
         if (current == null) {
-            scheduleRefresh(userId, requestId)
+            requestColdRefresh(userId, requestId)
             return SubscriptionFeedPageResult.Preparing(PREPARING_RETRY_AFTER_MS)
-        }
-        if (current.stale || clock() - current.generatedAt >= SubscriptionFeedSettings.freshnessMs) {
-            scheduleRefresh(userId, requestId)
         }
         val cursorState = cursor?.let(SubscriptionFeedCursorCodec::decode)
         if (cursor != null && cursorState == null) return SubscriptionFeedPageResult.InvalidCursor
@@ -70,7 +69,7 @@ class SubscriptionFeedService(
         }
         if (selection != SubscriptionSelection.All && !snapshot.hasCompleteSourceAttribution()) {
             if (cursorState != null) return SubscriptionFeedPageResult.StaleGeneration
-            scheduleRefresh(userId, requestId)
+            requestColdRefresh(userId, requestId)
             return SubscriptionFeedPageResult.Preparing(PREPARING_RETRY_AFTER_MS)
         }
         val offset = cursorState?.offset ?: page * limit
@@ -103,10 +102,9 @@ class SubscriptionFeedService(
     }
 
     suspend fun getAllWithAvailability(userId: String): SubscriptionFeedAvailability {
+        planner.touch(userId)
         val snapshot = store.current(userId)
-        if (snapshot == null || snapshot.stale || clock() - snapshot.generatedAt >= SubscriptionFeedSettings.freshnessMs) {
-            scheduleRefresh(userId, currentRequestId())
-        }
+        if (snapshot == null) requestColdRefresh(userId, currentRequestId())
         if (snapshot != null) {
             return SubscriptionFeedAvailability(
                 videos = snapshot.videos,
@@ -138,6 +136,13 @@ class SubscriptionFeedService(
         scheduleRefresh(userId, currentRequestId())
     }
 
+    suspend fun refreshDueUsers() {
+        planner.activeUsers().forEach { userId ->
+            val generatedAt = store.current(userId)?.generatedAt
+            if (!isRefreshing(userId) && planner.isDue(userId, generatedAt)) scheduleRefresh(userId, null)
+        }
+    }
+
     suspend fun awaitRefresh(userId: String) {
         while (true) {
             val jobs = listOfNotNull(refreshJobs[userId])
@@ -154,8 +159,13 @@ class SubscriptionFeedService(
         if (ownsRefreshScope) refreshScope.cancel()
     }
 
+    private fun requestColdRefresh(userId: String, requestId: String?) {
+        if (planner.canRetryCold(userId)) scheduleRefresh(userId, requestId)
+    }
+
     private fun scheduleRefresh(userId: String, requestId: String?) {
         val job = refreshScope.launch(start = CoroutineStart.LAZY) {
+            planner.recordAttempt(userId)
             var retry = false
             val invalidation = store.invalidationToken(userId)
             try {
