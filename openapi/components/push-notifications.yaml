@@ -70,3 +70,4 @@ UnifiedPushNotificationPayload:
     accountId: { type: string }
     publishedAt: { type: integer, format: int64 }
     title: { type: string }
+    thumbnailUrl: { type: string, description: Upstream video thumbnail URL, empty when unknown. }

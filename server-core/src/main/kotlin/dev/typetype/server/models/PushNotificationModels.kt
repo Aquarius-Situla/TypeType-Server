@@ -52,7 +52,7 @@ data class ChannelNotificationPreference(
 
 @Serializable
 data class UnifiedPushNotificationPayload(
-    val version: Int = 1,
+    val version: Int,
     val eventType: String,
     val serviceId: Int,
     val serviceName: String,
@@ -66,4 +66,5 @@ data class UnifiedPushNotificationPayload(
     val accountId: String,
     val publishedAt: Long,
     val title: String,
+    val thumbnailUrl: String = "",
 )
