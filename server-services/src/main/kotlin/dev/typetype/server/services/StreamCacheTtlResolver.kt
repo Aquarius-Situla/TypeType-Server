@@ -10,9 +10,16 @@ private const val DISLIKE_UNAVAILABLE_STREAM_TTL_SECONDS = 300L
 private const val SIGNED_PROVIDER_STREAM_MAX_TTL_SECONDS = 3_600L
 private const val SIGNED_STREAM_DEADLINE_SAFETY_SECONDS = 300L
 private const val MIN_CACHEABLE_STREAM_TTL_SECONDS = 60L
+private const val FINISHED_LIVE_STREAM_TTL_SECONDS = 300L
+private const val PER_CLIENT_HLS_MANIFEST_PREFIX = "/streams/hls-manifest?token="
 
 fun StreamResponse.streamCacheTtlSeconds(nowEpochSeconds: Long = System.currentTimeMillis() / 1000): Long {
-    if (isLive || isLiveContent) return 0L
+    if (isLive || isPostLive || hlsUrl.startsWith(PER_CLIENT_HLS_MANIFEST_PREFIX)) return 0L
+    val ttl = signedStreamTtlSeconds(nowEpochSeconds)
+    return if (isLiveContent) minOf(ttl, FINISHED_LIVE_STREAM_TTL_SECONDS) else ttl
+}
+
+private fun StreamResponse.signedStreamTtlSeconds(nowEpochSeconds: Long): Long {
     val urls = signedMediaUrls().toList()
     val deadline = urls.mapNotNull { it.mediaExpiryEpochSeconds() }.minOrNull()
         ?: return stableMetadataTtlSeconds()

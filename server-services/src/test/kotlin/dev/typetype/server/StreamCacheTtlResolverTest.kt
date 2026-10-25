@@ -46,6 +46,23 @@ class StreamCacheTtlResolverTest {
     }
 
     @Test
+    fun `a finished live is cached briefly like a video`() {
+        val replay = response("https://example.com/video.mp4").copy(isLiveContent = true)
+
+        assertEquals(300L, replay.streamCacheTtlSeconds(nowEpochSeconds = 1_000L))
+    }
+
+    @Test
+    fun `a live still being processed or carrying a client hls token is not cached`() {
+        val postLive = response("https://example.com/video.mp4").copy(isLiveContent = true, isPostLive = true)
+        val tokenized = response("https://example.com/video.mp4", hlsUrl = "/streams/hls-manifest?token=client")
+            .copy(isLiveContent = true)
+
+        assertEquals(0L, postLive.streamCacheTtlSeconds(nowEpochSeconds = 1_000L))
+        assertEquals(0L, tokenized.streamCacheTtlSeconds(nowEpochSeconds = 1_000L))
+    }
+
+    @Test
     fun `bilibili stream ttl follows signed deadline`() {
         val url = "https://upos-hz-mirrorakam.akamaized.net/video.m4s?deadline=10000&upsig=x"
         assertEquals(1_700L, response(url).streamCacheTtlSeconds(nowEpochSeconds = 8_000L))
