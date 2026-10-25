@@ -16,7 +16,7 @@ dependencies {
     implementation("io.ktor:ktor-server-websockets-jvm:3.6.0")
     implementation("io.ktor:ktor-client-core-jvm:3.6.0")
     implementation("io.ktor:ktor-client-okhttp-jvm:3.6.0")
-    implementation("com.squareup.okhttp3:okhttp:5.5.0")
+    implementation("com.squareup.okhttp3:okhttp:5.5.1")
     implementation("org.json:json:20260814")
     testImplementation("io.ktor:ktor-server-test-host-jvm:3.6.0")
     testImplementation("io.ktor:ktor-serialization-kotlinx-json-jvm:3.6.0")
