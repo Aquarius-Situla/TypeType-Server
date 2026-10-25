@@ -49,12 +49,12 @@ class TokenServiceResultTest {
 
     @Test
     fun `parses optional generation and expiry from the token`() {
-        val body = """{"poToken":"AAAA","visitorData":"visitor","streamingPot":"BBBB","generation":7,"expiresAt":1800000000}"""
+        val body = """{"poToken":"AAAA","visitorData":"visitor","streamingPot":"BBBB","generation":"bg-7","expiresAt":1800000000000}"""
         val client = TypetypeTokenSabrTokenClient("https://token.example", respond(200, body))
 
         val token = client.fetch("video")
 
-        assertEquals(7L, token?.generation)
+        assertEquals("bg-7", token?.generation)
         assertEquals(1_800_000_000_000L, token?.expiresAtMs)
     }
 
@@ -67,6 +67,16 @@ class TokenServiceResultTest {
         assertNull(token?.generation)
         assertNull(token?.expiresAtMs)
         assertFalse(token?.isExpired() ?: true)
+    }
+
+    @Test
+    fun `sabr session token keeps the token generation`() = runTest {
+        val body = """{"visitorData":"v","poToken":"AAAA","streamingPot":"BBBB","tokenGeneration":"bg-9","serverAbrStreamingUrl":"https://r.googlevideo.com/sabr?cver=2.0","adaptiveFormats":[],"videoPlaybackUstreamerConfig":"cfg"}"""
+        val client = TypetypeTokenYoutubeSessionClient("https://token.example", respond(200, body))
+
+        val session = client.fetchPlaybackSessionResult("video").valueOrNull()
+
+        assertEquals("bg-9", session?.token?.generation)
     }
 
     @Test
@@ -91,7 +101,7 @@ class TokenServiceResultTest {
         val token = TypetypeTokenYoutubeSessionClient("https://token.example", http).fetchTvPoToken(refresh = true)
 
         assertEquals("true", refresh)
-        assertEquals(3L, token?.generation)
+        assertEquals("3", token?.generation)
         assertEquals(1_792_929_600_000L, token?.expiresAtMs)
     }
 

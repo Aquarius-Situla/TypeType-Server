@@ -4,11 +4,10 @@ import org.json.JSONObject
 import java.time.Instant
 
 internal object TokenFreshness {
-    fun generation(json: JSONObject): Long? = when (val value = json.opt("generation")) {
-        is Number -> value.toLong()
-        is String -> value.toLongOrNull()
-        else -> null
-    }
+    fun generation(json: JSONObject): String? =
+        sequenceOf("generation", "tokenGeneration")
+            .mapNotNull { key -> json.opt(key)?.takeUnless { it == JSONObject.NULL }?.toString()?.trim() }
+            .firstOrNull { it.isNotEmpty() }
 
     fun expiresAtMs(json: JSONObject): Long? = when (val value = json.opt("expiresAt")) {
         is Number -> epochMs(value.toLong())

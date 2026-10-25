@@ -14,7 +14,7 @@ class SabrTokenBundle(
     val videoBoundPoTokenBytes: ByteArray,
     val sessionBinding: String? = null,
     val sessionBoundPoToken: String? = null,
-    val generation: Long? = null,
+    val generation: String? = null,
     val expiresAtMs: Long? = null,
 ) {
     val visitorPoToken: String = visitorBoundPoToken

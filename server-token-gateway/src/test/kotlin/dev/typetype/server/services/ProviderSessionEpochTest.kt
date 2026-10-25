@@ -30,13 +30,23 @@ class ProviderSessionEpochTest {
     }
 
     @Test
-    fun `a higher token generation advances the epoch even for the same visitor`() {
-        val bodies = ArrayDeque(listOf(token("visitor-a", 4), token("visitor-a", 4), token("visitor-a", 5)))
+    fun `a new token generation advances the epoch even for the same visitor`() {
+        val bodies = ArrayDeque(listOf(token("visitor-a", "g-1"), token("visitor-a", "g-1"), token("visitor-a", "g-0")))
         val client = TypetypeTokenSabrTokenClient("https://token.example", respond { bodies.removeFirst() })
 
         repeat(3) { client.fetch("video") }
 
         assertEquals(1L, client.sessionEpoch.current())
+    }
+
+    @Test
+    fun `a refresh answered with the same generation keeps the epoch`() {
+        val client = TypetypeTokenSabrTokenClient("https://token.example", respond(token("visitor-a", "g-1")))
+
+        client.fetch("video")
+        client.fetch("video", forceRefresh = true)
+
+        assertEquals(0L, client.sessionEpoch.current())
     }
 
     @Test
@@ -49,8 +59,8 @@ class ProviderSessionEpochTest {
         assertEquals(0L, client.sessionEpoch.current())
     }
 
-    private fun token(visitor: String, generation: Long? = null): String =
-        """{"poToken":"AAAA","visitorData":"$visitor","streamingPot":"BBBB"${generation?.let { ",\"generation\":$it" } ?: ""}}"""
+    private fun token(visitor: String, generation: String? = null): String =
+        """{"poToken":"AAAA","visitorData":"$visitor","streamingPot":"BBBB"${generation?.let { ",\"generation\":\"$it\"" } ?: ""}}"""
 
     private fun respond(body: String): OkHttpClient = respond { body }
 

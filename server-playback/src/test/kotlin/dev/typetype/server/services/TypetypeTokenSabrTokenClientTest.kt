@@ -23,6 +23,18 @@ class SabrUnauthorizedResponseRecoveryTest {
     }
 
     @Test
+    fun rejectsTokenFromNewProviderGeneration(): Unit {
+        val (holder, state) = holder(visitorData = "visitor-a", currentToken = byteArrayOf(1))
+        every { holder.playerContextToken } returns bundle("visitor-a", byteArrayOf(1), generation = "g-1")
+        val recovery = SabrUnauthorizedResponseRecovery { bundle("visitor-a", byteArrayOf(2), generation = "g-2") }
+
+        val error = assertThrows(SabrUpstreamUnauthorizedException::class.java) { recovery.verify(holder) }
+
+        assertTrue(error.providerSessionChanged)
+        verify(exactly = 0) { state.setPoToken(any()) }
+    }
+
+    @Test
     fun rejectsUnchangedVideoToken(): Unit {
         val token = byteArrayOf(1)
         val (holder, state) = holder(visitorData = "visitor-a", currentToken = token)
@@ -82,12 +94,13 @@ class SabrUnauthorizedResponseRecoveryTest {
         return holder to state
     }
 
-    private fun bundle(visitorData: String, videoToken: ByteArray): SabrTokenBundle = SabrTokenBundle(
+    private fun bundle(visitorData: String, videoToken: ByteArray, generation: String? = null): SabrTokenBundle = SabrTokenBundle(
         videoId = "video",
         visitorBoundPoToken = "visitor-token",
         visitorBoundPoTokenBytes = byteArrayOf(9),
         visitorData = visitorData,
         videoBoundPoToken = "video-token",
         videoBoundPoTokenBytes = videoToken,
+        generation = generation,
     )
 }
