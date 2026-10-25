@@ -48,7 +48,7 @@ class CachedChannelServiceTest {
     }
 
     @Test
-    fun `other providers keep their regular empty channel cache ttl`() = runBlocking {
+    fun `empty first channel pages from any provider receive a short cache ttl`() = runBlocking {
         val url = "https://www.youtube.com/@empty"
         val cache = RecordingCache()
         val service = CachedChannelService(
@@ -57,7 +57,35 @@ class CachedChannelServiceTest {
         )
 
         assertEquals(ExtractionResult.Success(channel()), service.getChannel(url, null))
-        assertEquals(3_600L, cache.ttl(PublicCacheKey.of("channel", url, null, null)))
+        assertEquals(30L, cache.ttl(PublicCacheKey.of("channel", url, null, null)))
+    }
+
+    @Test
+    fun `empty live tabs are a normal channel page`() = runBlocking {
+        val url = "https://www.youtube.com/@quiet/streams"
+        val cache = RecordingCache()
+        val service = CachedChannelService(
+            channelService { _, _, _ -> ExtractionResult.Success(channel()) },
+            cache,
+        )
+
+        service.getChannel(url, null)
+
+        assertEquals(300L, cache.ttl(PublicCacheKey.of("channel", url, null, null)))
+    }
+
+    @Test
+    fun `a channel page without its channel name falls back to the last complete page`() = runBlocking {
+        val url = "https://www.youtube.com/@partial/streams"
+        val cache = ExpiringFakeCache()
+        val complete = channel(listOf(testVideoItem()))
+        var next: ChannelResponse = complete
+        val service = CachedChannelService(channelService { _, _, _ -> ExtractionResult.Success(next) }, cache)
+        service.getChannel(url, null)
+        cache.delete(PublicCacheKey.of("channel", url, null, null))
+        next = complete.copy(name = "")
+
+        assertEquals(ExtractionResult.Success(complete), service.getChannel(url, null))
     }
 
     private fun channelService(

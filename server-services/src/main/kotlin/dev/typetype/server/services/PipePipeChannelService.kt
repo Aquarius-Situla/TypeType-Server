@@ -13,9 +13,20 @@ import org.schabi.newpipe.extractor.channel.ChannelInfo
 import org.schabi.newpipe.extractor.channel.ChannelTabInfo
 import org.schabi.newpipe.extractor.linkhandler.ChannelTabs
 
-class PipePipeChannelService : ChannelService {
+class PipePipeChannelService : ChannelService, ChannelVideosSource {
 
     override suspend fun getChannel(url: String, nextpage: String?, sort: String?): ExtractionResult<ChannelResponse> =
+        extract(url, nextpage, sort, withMetadata = true)
+
+    override suspend fun firstPage(url: String): ExtractionResult<ChannelResponse> =
+        extract(url, nextpage = null, sort = null, withMetadata = false)
+
+    private suspend fun extract(
+        url: String,
+        nextpage: String?,
+        sort: String?,
+        withMetadata: Boolean,
+    ): ExtractionResult<ChannelResponse> =
         withContext(Dispatchers.IO) {
             val normalizedSort = sort?.takeIf { it.isNotBlank() }
             val page = if (nextpage != null) {
@@ -29,7 +40,7 @@ class PipePipeChannelService : ChannelService {
                 withExtractionRetry {
                     withTimeout(30_000L) {
                         if (page == null) {
-                            extractFirstPage(url, normalizedSort)
+                            extractFirstPage(url, normalizedSort, withMetadata)
                         } else {
                             extractMorePage(url, page, normalizedSort)
                         }
@@ -59,15 +70,18 @@ class PipePipeChannelService : ChannelService {
             )
         }
 
-    private fun extractFirstPage(url: String, sort: String?): ChannelResponse {
+    private fun extractFirstPage(url: String, sort: String?, withMetadata: Boolean): ChannelResponse {
         val service = NewPipe.getServiceByUrl(url)
         val tab = service.toChannelTab(url, sort)
         if (tab != null) {
             val channelUrl = url.toBaseChannelUrl(tab)
-            val metadata = runCatching { ChannelInfo.getInfo(channelUrl) }.getOrNull()
             val extractor = service.channelTabExtractor(url, channelId(channelUrl, service), tab, sort)
             extractor.fetchPage()
-            return ChannelTabInfo.getInfo(extractor).toChannelTabResponse(metadata)
+            val tabInfo = ChannelTabInfo.getInfo(extractor)
+            val videos = tabInfo.toChannelTabResponse()
+            if (!withMetadata) return videos
+            val metadata = runCatching { ChannelInfo.getInfo(channelUrl) }.getOrNull() ?: return videos.copy(name = "")
+            return tabInfo.toChannelTabResponse(metadata)
         }
         return ChannelInfo.getInfo(url).toChannelResponse()
     }

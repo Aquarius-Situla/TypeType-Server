@@ -31,9 +31,9 @@ class CachedRelatedVideosServiceTest {
     }
 
     @Test
-    fun `successful empty results are cached`() = runBlocking {
+    fun `successful empty results are kept for thirty seconds only`() = runBlocking {
         var calls = 0
-        val cache = FakeCacheService()
+        val cache = ExpiringFakeCache()
         val service = CachedRelatedVideosService(
             RelatedVideosService {
                 calls += 1
@@ -46,6 +46,7 @@ class CachedRelatedVideosServiceTest {
         assertEquals(ExtractionResult.Success(emptyList<VideoItem>()), service.related(YOUTUBE_URL))
         assertEquals(1, calls)
         assertEquals(setOf("youtube-related:v1:$VIDEO_ID"), cache.keys())
+        assertEquals(30L, cache.ttls["youtube-related:v1:$VIDEO_ID"])
     }
 
     @Test
@@ -75,7 +76,7 @@ class CachedRelatedVideosServiceTest {
     }
 
     @Test
-    fun `failures are not cached`() = runBlocking {
+    fun `failures back off before the provider is asked again`() = runBlocking {
         var calls = 0
         val failure = ExtractionResult.Failure("temporary upstream error")
         val service = CachedRelatedVideosService(
@@ -88,7 +89,20 @@ class CachedRelatedVideosServiceTest {
 
         assertEquals(failure, service.related(YOUTUBE_URL))
         assertEquals(failure, service.related(YOUTUBE_URL))
-        assertEquals(2, calls)
+        assertEquals(1, calls)
+    }
+
+    @Test
+    fun `an empty result after a good one serves the good videos`() = runBlocking {
+        val cache = ExpiringFakeCache()
+        val related = listOf(testVideoItem().copy(id = "related"))
+        var next: List<VideoItem> = related
+        val service = CachedRelatedVideosService(RelatedVideosService { ExtractionResult.Success(next) }, cache)
+        service.related(YOUTUBE_URL)
+        cache.delete("youtube-related:v1:$VIDEO_ID")
+        next = emptyList()
+
+        assertEquals(ExtractionResult.Success(related), service.related(YOUTUBE_URL))
     }
 
     private companion object {
