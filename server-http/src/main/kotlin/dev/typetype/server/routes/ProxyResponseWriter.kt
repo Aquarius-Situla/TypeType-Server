@@ -8,10 +8,7 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.ApplicationCall
 import io.ktor.server.response.respond
 import io.ktor.server.response.respondOutputStream
-import io.ktor.utils.io.ClosedByteChannelException
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.currentCoroutineContext
-import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 import java.io.InputStream
 import java.io.OutputStream
@@ -40,12 +37,8 @@ private suspend fun ApplicationCall.respondProxy(proxy: ProxyResponse, contentTy
     }
 }
 
-internal suspend fun copyProxyStream(source: InputStream, destination: OutputStream) {
-    try {
-        withContext(Dispatchers.IO) { source.copyTo(destination, PROXY_COPY_BUFFER_SIZE) }
-    } catch (_: ClosedByteChannelException) {
-        currentCoroutineContext().ensureActive()
-    }
+internal suspend fun copyProxyStream(source: InputStream, destination: OutputStream): Unit = stopOnClientDisconnect {
+    withContext(Dispatchers.IO) { source.copyTo(destination, PROXY_COPY_BUFFER_SIZE) }
 }
 
 private const val PROXY_COPY_BUFFER_SIZE = 64 * 1024

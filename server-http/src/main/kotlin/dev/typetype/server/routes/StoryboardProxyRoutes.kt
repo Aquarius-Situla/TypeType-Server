@@ -10,8 +10,6 @@ import io.ktor.server.response.respond
 import io.ktor.server.response.respondOutputStream
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.get
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 
 fun Route.storyboardProxyRoutes(proxyService: ProxyService) {
     get("/proxy/image") {
@@ -30,7 +28,7 @@ fun Route.storyboardProxyRoutes(proxyService: ProxyService) {
                     proxy.contentRange?.let { call.response.headers.append("Content-Range", it) }
                     proxy.acceptRanges?.let { call.response.headers.append("Accept-Ranges", it) }
                     call.respondOutputStream(contentType, status, proxy.contentLength) {
-                        withContext(Dispatchers.IO) { proxy.stream.copyTo(this@respondOutputStream) }
+                        copyProxyStream(proxy.stream, this@respondOutputStream)
                     }
                 } finally {
                     proxy.close()
