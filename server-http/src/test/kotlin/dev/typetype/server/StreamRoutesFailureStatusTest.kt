@@ -4,8 +4,10 @@ import dev.typetype.server.models.ExtractionFailureKind
 import dev.typetype.server.models.ExtractionResult
 import dev.typetype.server.models.StreamResponse
 import dev.typetype.server.routes.streamRoutes
+import dev.typetype.server.services.ProviderMediaHandleService
 import dev.typetype.server.services.StreamService
 import io.ktor.client.request.get
+import io.ktor.client.statement.HttpResponse
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
@@ -84,15 +86,61 @@ class StreamRoutesFailureStatusTest {
         assertEquals("60", response.headers[HttpHeaders.RetryAfter])
     }
 
+    @Test
+    fun `unprepared sabr playback is a retryable outage`() = testApplication {
+        coEvery { streamService.getStreamInfo(any()) } returns ExtractionResult.Success(sabrResponse())
+        install { _, _ -> null }
+
+        val response: HttpResponse = client.get(YOUTUBE)
+
+        assertEquals(HttpStatusCode.ServiceUnavailable, response.status)
+        assertEquals("15", response.headers[HttpHeaders.RetryAfter])
+        assertTrue(response.bodyAsText().contains("\"code\":\"no_playable_streams\""))
+    }
+
+    @Test
+    fun `expired provider media urls are content answers`() = testApplication {
+        val status = mediaHandleFailureStatus(IllegalArgumentException("Provider media URL has expired"))
+
+        assertEquals(HttpStatusCode.UnprocessableEntity, status)
+    }
+
+    @Test
+    fun `media handle storage outages are retryable`() = testApplication {
+        val status = mediaHandleFailureStatus(IllegalStateException("cache down"))
+
+        assertEquals(HttpStatusCode.ServiceUnavailable, status)
+    }
+
+    private suspend fun ApplicationTestBuilder.mediaHandleFailureStatus(error: Exception): HttpStatusCode {
+        val handles = mockk<ProviderMediaHandleService>()
+        coEvery { handles.materialize(any(), any()) } throws error
+        coEvery { streamService.getStreamInfo(any()) } returns ExtractionResult.Success(
+            testStreamResponse(),
+        )
+        application {
+            install(ContentNegotiation) { json() }
+            routing { streamRoutes(streamService, providerMediaHandleService = handles) }
+        }
+        return client.get(NICONICO).status
+    }
+
     private fun ApplicationTestBuilder.failWith(result: ExtractionResult<StreamResponse>) {
         coEvery { streamService.getStreamInfo(any()) } returns result
         install()
     }
 
-    private fun ApplicationTestBuilder.install() = application {
+    private fun ApplicationTestBuilder.install(
+        sabrFilter: (suspend (String, StreamResponse) -> StreamResponse?)? = null,
+    ) = application {
         install(ContentNegotiation) { json() }
-        routing { streamRoutes(streamService) }
+        routing { streamRoutes(streamService, sabrStreamContractFilter = sabrFilter) }
     }
+
+    private fun sabrResponse(): StreamResponse = testStreamResponse(
+        videoOnlyStreams = listOf(testVideoStream().copy(deliveryMethod = "sabr")),
+        audioStreams = listOf(testAudioStream(deliveryMethod = "sabr")),
+    )
 
     private companion object {
         const val YOUTUBE = "/streams/youtube/sabr?url=https://youtube.com/watch?v=test"
