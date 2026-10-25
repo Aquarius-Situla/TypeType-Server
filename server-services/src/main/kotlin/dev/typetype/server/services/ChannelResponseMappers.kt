@@ -8,6 +8,7 @@ import org.schabi.newpipe.extractor.channel.ChannelInfo
 import org.schabi.newpipe.extractor.channel.ChannelTabInfo
 import org.schabi.newpipe.extractor.playlist.PlaylistInfoItem
 import org.schabi.newpipe.extractor.stream.StreamInfoItem
+import org.schabi.newpipe.extractor.exceptions.ExtractionException
 
 fun ChannelInfo.toChannelResponse(): ChannelResponse = ChannelResponse(
     name = name ?: "",
@@ -31,16 +32,22 @@ fun InfoItemsPage<StreamInfoItem>.toChannelResponse(): ChannelResponse = Channel
     nextpage = nextPage?.toCursor(),
 )
 
-fun ChannelTabInfo.toChannelTabResponse(metadata: ChannelInfo? = null): ChannelResponse = ChannelResponse(
-    name = metadata?.name ?: name ?: "",
-    description = metadata?.description ?: "",
-    avatarUrl = metadata?.avatarUrl ?: "",
-    bannerUrl = metadata?.bannerUrl ?: "",
-    subscriberCount = metadata?.subscriberCount ?: -1L,
-    isVerified = metadata?.isVerified ?: false,
-    videos = relatedItems.filterIsInstance<StreamInfoItem>().map { it.toVideoItem(fallbackAvatarUrl = metadata?.avatarUrl ?: "") },
-    nextpage = nextPage?.toCursor(),
-)
+fun ChannelTabInfo.toChannelTabResponse(metadata: ChannelInfo? = null): ChannelResponse {
+    val videoItems = relatedItems.filterIsInstance<StreamInfoItem>()
+    if (videoItems.isEmpty() && errors.isNotEmpty()) {
+        throw ExtractionException("Channel extraction returned no videos", errors.first())
+    }
+    return ChannelResponse(
+        name = metadata?.name ?: name ?: "",
+        description = metadata?.description ?: "",
+        avatarUrl = metadata?.avatarUrl ?: "",
+        bannerUrl = metadata?.bannerUrl ?: "",
+        subscriberCount = metadata?.subscriberCount ?: -1L,
+        isVerified = metadata?.isVerified ?: false,
+        videos = videoItems.map { it.toVideoItem(fallbackAvatarUrl = metadata?.avatarUrl ?: "") },
+        nextpage = nextPage?.toCursor(),
+    )
+}
 
 fun InfoItemsPage<InfoItem>.toChannelTabResponse(): ChannelResponse = ChannelResponse(
     name = "",
