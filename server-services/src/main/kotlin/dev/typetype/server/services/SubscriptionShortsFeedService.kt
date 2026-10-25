@@ -100,8 +100,10 @@ class SubscriptionShortsFeedService(
     private fun uploaderKey(video: VideoItem): String = video.uploaderUrl.ifBlank { video.uploaderName }
 
     private suspend fun fetchForSubscription(channelUrl: String): SourceVideos {
-        val shorts = fetch(shortsTabUrl(channelUrl))
-        if (shorts.videos.isNotEmpty()) return shorts.copy(videos = shorts.videos.map { it.copy(isShortFormContent = true) })
+        if (recommendationServiceId(channelUrl) == YOUTUBE_SERVICE_ID) {
+            val shorts = fetch(shortsTabUrl(channelUrl))
+            if (shorts.videos.isNotEmpty()) return shorts.copy(videos = shorts.videos.map { it.copy(isShortFormContent = true) })
+        }
         return fetch(channelUrl)
     }
 

@@ -15,14 +15,17 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import java.util.Collections
 
 class SubscriptionShortsFeedCachingTest {
     companion object { @BeforeAll @JvmStatic fun initDb() = TestDatabase.setup() }
 
     private val subscriptions = SubscriptionsService()
     private val cache = ExpiringFakeCache()
+    private val requested: MutableList<String> = Collections.synchronizedList(mutableListOf())
     private var failing = false
     private val source = ChannelVideosSource { url ->
+        requested += url
         if (failing) ExtractionResult.Failure("blocked") else channel(video(1_000L, "A", short = true))
     }
     private val feed = SubscriptionShortsFeedService(subscriptions, FakeChannelService(), mockk<SubscriptionShortsBlendService>(), cache, source)
@@ -47,5 +50,14 @@ class SubscriptionShortsFeedCachingTest {
         feed.getFeed(TEST_USER_ID, 0, 10)
 
         assertEquals(3_600L, cache.ttls[SubscriptionFeedCacheKeys.shorts(TEST_USER_ID)])
+    }
+
+    @Test
+    fun `providers without a shorts tab are asked for their channel page only`() = runTest {
+        subscriptions.add(TEST_USER_ID, subscription("https://space.bilibili.com/42", "B"))
+
+        feed.getFeed(TEST_USER_ID, 0, 10)
+
+        assertEquals(listOf("https://space.bilibili.com/42"), requested)
     }
 }
