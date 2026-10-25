@@ -1,5 +1,7 @@
 package dev.typetype.server.services
 
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.runInterruptible
 import kotlinx.coroutines.sync.withLock
 import org.schabi.newpipe.extractor.localization.Localization
 import dev.typetype.server.sabr.SabrMediaSegment
@@ -22,8 +24,10 @@ internal suspend fun fetchSabrInitializationSegment(
     if (holder.session.isBeyondEnd(request) || holder.playbackState() == SabrPlaybackState.TERMINAL) return@withLock null
     val requestNumber = holder.session.requestNumber
     val result = runCatchingNonCancellation {
-        holder.session.prepareForInitialization(request.format)
-        holder.withPlayerContext { fetchSegment(request, localization) }
+        holder.withPlayerContextOffThread {
+            prepareForInitialization(request.format)
+            fetchSegment(request, localization)
+        }
     }
     val status = SabrUnauthorizedResponseRecovery.latestUnauthorizedStatus(holder.session.diagnosticTrace)
     val recovered = if (
@@ -59,7 +63,7 @@ internal suspend fun fetchSabrInitializationSegment(
         }
 }
 
-private fun retryUnauthorized(
+private suspend fun retryUnauthorized(
     holder: SabrSessionHolder,
     request: SabrSegmentRequest,
     localization: Localization,
@@ -73,10 +77,14 @@ private fun retryUnauthorized(
         status,
     )
     val retry = runCatchingNonCancellation {
-        unauthorizedRecovery.verify(holder)
+        runInterruptible(Dispatchers.IO) { unauthorizedRecovery.verify(holder) }
         val requestNumber = holder.session.requestNumber
-        holder.session.prepareForInitialization(request.format)
-        val segment = runCatchingNonCancellation { holder.withPlayerContext { fetchSegment(request, localization) } }
+        val segment = runCatchingNonCancellation {
+            holder.withPlayerContextOffThread {
+                prepareForInitialization(request.format)
+                fetchSegment(request, localization)
+            }
+        }
         val stillRefused = SabrUnauthorizedResponseRecovery.latestUnauthorizedStatus(holder.session.diagnosticTrace)
             ?.takeIf { holder.session.requestNumber > requestNumber }
         if (stillRefused != null && segment.getOrNull() == null) throw SabrUpstreamUnauthorizedException(stillRefused)

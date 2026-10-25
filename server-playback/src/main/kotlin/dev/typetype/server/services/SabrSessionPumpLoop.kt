@@ -153,7 +153,7 @@ class SabrSessionPumpLoop(
     private suspend fun pumpOnce(holder: SabrSessionHolder, localization: Localization, runtime: SabrPumpRuntime): Int {
         return try {
             runInterruptible(Dispatchers.IO) { holder.withPlayerContext { pumpOnceStreaming(localization) } }
-                .also { unauthorizedRecovery.verify(holder) }
+                .also { runInterruptible(Dispatchers.IO) { unauthorizedRecovery.verify(holder) } }
                 .also { runtime.verifyProtectedResponse(holder) }
         } finally {
             runtime.recordRequest()
@@ -168,7 +168,7 @@ class SabrSessionPumpLoop(
     ): YoutubeSabrSession.DemandResponseResult {
         return try {
             runInterruptible(Dispatchers.IO) { holder.withPlayerContext { pumpOnceStreamingForDemand(localization, request) } }
-                .also { unauthorizedRecovery.verify(holder) }
+                .also { runInterruptible(Dispatchers.IO) { unauthorizedRecovery.verify(holder) } }
                 .also { runtime.verifyProtectedResponse(holder) }
         } finally {
             runtime.recordRequest()
