@@ -114,12 +114,18 @@ class ServiceRegistry(
     val subscriptionsService = SubscriptionsService()
     val subscriptionAvatarWarmupService = SubscriptionAvatarWarmupService(channelService)
     val subscriptionGroupsService = SubscriptionGroupsService()
-    val subscriptionFeedService = SubscriptionFeedService(subscriptionsService, channelService, cache)
+    val subscriptionFeedService = SubscriptionFeedService(
+        subscriptionsService,
+        channelService,
+        cache,
+        channelVideos = extraction.channelVideosSource,
+    )
     val subscriptionShortsFeedService = SubscriptionShortsFeedService(
         subscriptionsService,
         channelService,
         SubscriptionShortsBlendService(trendingService),
         cache,
+        extraction.channelVideosSource,
     )
     init {
         SubscriptionFeedCacheInvalidation.configure(

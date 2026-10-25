@@ -13,9 +13,10 @@ import kotlinx.serialization.builtins.ListSerializer
 
 class SubscriptionShortsFeedService(
     private val subscriptionsService: SubscriptionsService,
-    private val channelService: ChannelService,
+    channelService: ChannelService,
     private val blendService: SubscriptionShortsBlendService,
     private val cache: CacheService,
+    private val channelVideos: ChannelVideosSource = ChannelServiceVideosSource(channelService),
 ) {
     private val semaphore = Semaphore(20)
 
@@ -98,7 +99,7 @@ class SubscriptionShortsFeedService(
 
     private suspend fun fetch(url: String): List<VideoItem> = runCatching {
         withTimeout(15_000L) {
-            channelService.getChannel(url, null)
+            channelVideos.firstPage(url)
         }
     }.getOrNull()?.let { result ->
         when (result) {

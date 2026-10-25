@@ -6,6 +6,7 @@ import dev.typetype.server.services.BilibiliRelatedService
 import dev.typetype.server.services.BilibiliTrendingService
 import dev.typetype.server.services.AuthenticatedSabrInfoService
 import dev.typetype.server.services.CachedChannelService
+import dev.typetype.server.services.CachedChannelVideosSource
 import dev.typetype.server.services.CachedImageProxyService
 import dev.typetype.server.services.CachedCommentService
 import dev.typetype.server.services.CachedManifestService
@@ -50,6 +51,7 @@ import dev.typetype.server.services.YoutubePlayerClientStreamService
 import dev.typetype.server.services.YoutubeLiveHlsStreamService
 import dev.typetype.server.services.YoutubeDirectLiveHlsStreamService
 import dev.typetype.server.services.YoutubeScopedChannelService
+import dev.typetype.server.services.YoutubeScopedChannelVideosSource
 import dev.typetype.server.services.YoutubeScopedCommentService
 import dev.typetype.server.services.YoutubeScopedPublicPlaylistService
 import dev.typetype.server.services.YoutubeScopedSearchService
@@ -196,7 +198,13 @@ internal class ExtractionServiceRegistry(
     )
     val commentService = CachedCommentService(YoutubeScopedCommentService(PipePipeCommentService()), cache)
     val bulletCommentService = PipePipeBulletCommentService()
-    val channelService = CachedChannelService(YoutubeScopedChannelService(PipePipeChannelService()), cache)
+    private val pipePipeChannelService = PipePipeChannelService()
+    val channelService = CachedChannelService(YoutubeScopedChannelService(pipePipeChannelService), cache)
+    val channelVideosSource = CachedChannelVideosSource(
+        channelService,
+        YoutubeScopedChannelVideosSource(pipePipeChannelService),
+        cache,
+    )
     val podcastService = CachedPodcastService(PipePipePodcastService(), cache)
     val publicPlaylistService = CachedPublicPlaylistService(
         YoutubeScopedPublicPlaylistService(PipePipePublicPlaylistService()),

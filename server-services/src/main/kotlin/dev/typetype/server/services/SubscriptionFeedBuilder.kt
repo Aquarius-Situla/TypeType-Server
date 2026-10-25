@@ -11,7 +11,7 @@ import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withTimeoutOrNull
 import java.net.URI
 
-class SubscriptionFeedBuilder(private val channelService: ChannelService) {
+class SubscriptionFeedBuilder(private val channelVideos: ChannelVideosSource) {
     private val semaphore = Semaphore(SubscriptionFeedSettings.maxConcurrentFetches)
 
     suspend fun build(subscriptions: List<SubscriptionItem>): SubscriptionFeedBuildResult = coroutineScope {
@@ -71,7 +71,7 @@ class SubscriptionFeedBuilder(private val channelService: ChannelService) {
     private suspend fun fetchVideos(url: String): SourceFetchResult = semaphore.withPermit {
         try {
             withTimeoutOrNull(CHANNEL_TIMEOUT_MS) {
-                when (val result = channelService.getChannel(url, null)) {
+                when (val result = channelVideos.firstPage(url)) {
                     is ExtractionResult.Success -> SourceFetchResult(result.data.videos, true)
                     else -> SourceFetchResult(emptyList(), false)
                 }

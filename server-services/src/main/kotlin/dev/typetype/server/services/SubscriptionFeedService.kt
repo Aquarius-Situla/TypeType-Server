@@ -24,12 +24,13 @@ class SubscriptionFeedService(
     cache: CacheService,
     private val clock: () -> Long = System::currentTimeMillis,
     refreshScope: CoroutineScope? = null,
+    channelVideos: ChannelVideosSource = ChannelServiceVideosSource(channelService),
 ) {
     private val refreshScope = refreshScope ?: CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val ownsRefreshScope = refreshScope == null
     private val store = SubscriptionFeedSnapshotStore(cache, clock)
     private val selections = SubscriptionFeedSelectionStore(cache, subscriptionsService)
-    private val refresher = SubscriptionFeedRefresher(subscriptionsService, store, SubscriptionFeedBuilder(channelService), clock)
+    private val refresher = SubscriptionFeedRefresher(subscriptionsService, store, SubscriptionFeedBuilder(channelVideos), clock)
     private val refreshJobs = ConcurrentHashMap<String, Job>()
     private val planner = SubscriptionFeedRefreshPlanner(clock)
 
