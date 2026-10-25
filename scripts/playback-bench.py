@@ -12,6 +12,7 @@ import urllib.request
 SERVICES = {"youtube": 0, "bilibili": 5, "niconico": 6}
 MAX_VOD_SECONDS = 3 * 3600
 FIRST_BYTES = 512 * 1024
+SEARCH_FALLBACK = ("documentary", "cooking recipe", "science explained", "travel vlog", "piano")
 UNAVAILABLE_CODES = {"geographic_restriction", "paid_content", "private_content", "content_unavailable", "age_restricted"}
 
 
@@ -56,11 +57,21 @@ def quote(value):
     return urllib.parse.quote(value, safe="")
 
 
+def is_vod(item):
+    return 0 < (item.get("duration") or 0) <= MAX_VOD_SECONDS and not item.get("isShortFormContent")
+
+
 def pick_videos(client, service, count):
     status, items, _ = client.json("GET", f"/trending?service={SERVICES[service]}")
     if status != 200 or not isinstance(items, list):
         raise SystemExit(f"trending {service} failed with HTTP {status}")
-    vods = [item["url"] for item in items if 0 < (item.get("duration") or 0) <= MAX_VOD_SECONDS]
+    vods = list(dict.fromkeys(item["url"] for item in items if is_vod(item)))
+    for query in SEARCH_FALLBACK:
+        if len(vods) >= count:
+            break
+        status, page, _ = client.json("GET", f"/search?q={quote(query)}&service={SERVICES[service]}")
+        if status == 200 and isinstance(page, dict):
+            vods.extend(item["url"] for item in page.get("items", []) if is_vod(item) and item["url"] not in vods)
     return vods[:count]
 
 
