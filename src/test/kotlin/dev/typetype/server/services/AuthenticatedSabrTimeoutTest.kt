@@ -139,6 +139,7 @@ class AuthenticatedSabrTimeoutTest {
             visitorDataFetcher = visitor,
             probe = probeMock,
             cache = AuthenticatedSabrInfoCache(timeoutMs = 2_500L),
+            tvClient = mockk(relaxed = true),
         )
     }
 

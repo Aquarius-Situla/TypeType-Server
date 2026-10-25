@@ -26,23 +26,25 @@ class AuthenticatedSabrInfoCache(
     suspend fun getOrLoad(
         credentials: YoutubeSessionCredentials,
         videoId: String,
+        epoch: Long = 0L,
         loader: suspend () -> AuthenticatedSabrInfoResult,
-    ): AuthenticatedSabrInfoResult = getOrLoad(credentials.userId, credentials.fingerprint, videoId, loader)
+    ): AuthenticatedSabrInfoResult = getOrLoad(credentials.userId, credentials.fingerprint, videoId, epoch, loader)
 
     suspend fun getOrLoad(
         userId: String,
         identityFingerprint: String,
         videoId: String,
+        epoch: Long = 0L,
         loader: suspend () -> AuthenticatedSabrInfoResult,
     ): AuthenticatedSabrInfoResult {
         val key = Key(userId, identityFingerprint, videoId)
-        cached(key)?.let { return it }
+        cached(key, epoch)?.let { return it }
         val pending = CompletableDeferred<AuthenticatedSabrInfoResult>()
         val existing = inFlight.putIfAbsent(key, pending)
-        if (existing != null) return awaitExisting(userId, identityFingerprint, videoId, loader, existing)
+        if (existing != null) return awaitExisting(userId, identityFingerprint, videoId, epoch, loader, existing)
         return try {
             val result = withTimeout(timeoutMs) { loader() }
-            if (result is AuthenticatedSabrInfoResult.Ready) cache(key, result)
+            if (result is AuthenticatedSabrInfoResult.Ready) cache(key, result, epoch)
             pending.complete(result)
             result
         } catch (error: Throwable) {
@@ -57,6 +59,7 @@ class AuthenticatedSabrInfoCache(
         userId: String,
         identityFingerprint: String,
         videoId: String,
+        epoch: Long,
         loader: suspend () -> AuthenticatedSabrInfoResult,
         pending: CompletableDeferred<AuthenticatedSabrInfoResult>,
     ): AuthenticatedSabrInfoResult = try {
@@ -65,17 +68,17 @@ class AuthenticatedSabrInfoCache(
         throw error
     } catch (error: CancellationException) {
         if (!currentCoroutineContext().isActive) throw error
-        getOrLoad(userId, identityFingerprint, videoId, loader)
+        getOrLoad(userId, identityFingerprint, videoId, epoch, loader)
     }
 
-    private fun cached(key: Key): AuthenticatedSabrInfoResult.Ready? {
+    private fun cached(key: Key, epoch: Long): AuthenticatedSabrInfoResult.Ready? {
         val entry = items.get(key) ?: return null
-        if (entry.expiresAtMs > nowMillis()) return entry.result
+        if (entry.expiresAtMs > nowMillis() && entry.epoch >= epoch) return entry.result
         items.remove(key)
         return null
     }
 
-    private fun cache(key: Key, result: AuthenticatedSabrInfoResult.Ready) {
+    private fun cache(key: Key, result: AuthenticatedSabrInfoResult.Ready, epoch: Long) {
         val response = result.streamResponse
         if (result.prepared.isLive || result.prepared.isLiveContent || response?.isLive == true || response?.isLiveContent == true) return
         val now = nowMillis()
@@ -104,7 +107,7 @@ class AuthenticatedSabrInfoCache(
         }.mapNotNull { it.mediaExpiryEpochMs() }.minOrNull()?.minus(URL_EXPIRY_SAFETY_MS)
         val expiry = signedDeadline?.let { minOf(maximumExpiry, it) } ?: maximumExpiry
         if (expiry - now < MIN_CACHE_TTL_MS) return
-        items.put(key, CachedReady(result, expiry))
+        items.put(key, CachedReady(result, expiry, epoch))
     }
 
     private fun String.mediaExpiryEpochMs(): Long? {
@@ -129,6 +132,7 @@ class AuthenticatedSabrInfoCache(
     private data class CachedReady(
         val result: AuthenticatedSabrInfoResult.Ready,
         val expiresAtMs: Long,
+        val epoch: Long,
     )
 
     private companion object {

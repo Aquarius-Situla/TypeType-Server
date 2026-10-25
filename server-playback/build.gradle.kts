@@ -27,6 +27,7 @@ dependencies {
     testImplementation("io.mockk:mockk:1.14.11")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.11.0")
     testImplementation("io.ktor:ktor-server-test-host-jvm:3.6.0")
+    testImplementation("ch.qos.logback:logback-classic:1.6.5")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 

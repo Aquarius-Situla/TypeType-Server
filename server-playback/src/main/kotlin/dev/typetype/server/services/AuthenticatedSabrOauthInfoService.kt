@@ -14,13 +14,14 @@ class AuthenticatedSabrOauthInfoService(
     private val cache: AuthenticatedSabrInfoCache,
     private val tvClient: YoutubeTvOauthPlayerClient,
     private val bindingClient: TypetypeTokenYoutubeSessionClient?,
+    private val sessionEpoch: ProviderSessionEpoch = ProviderSessionEpoch(),
 ) {
     suspend fun fetch(userId: String, videoId: String): AuthenticatedSabrInfoResult {
         val accessToken = youtubeSessionService.oauthAccessToken(userId)
             ?: return AuthenticatedSabrInfoResult.NotConnected
         val identity = PublicCacheKey.of("youtube-oauth-session", accessToken)
         return try {
-            cache.getOrLoad(userId, identity, videoId) {
+            cache.getOrLoad(userId, identity, videoId, sessionEpoch.current()) {
                 val player = fetchPlayer(videoId, accessToken)
                     ?: return@getOrLoad AuthenticatedSabrInfoResult.NotConnected
                 when (val result = prepare(videoId, player)) {
