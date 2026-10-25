@@ -11,7 +11,7 @@ import kotlinx.coroutines.currentCoroutineContext
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.coroutines.ContinuationInterceptor
 
-class SingleFlight<K : Any, V>(
+class KeyedSingleFlight<K : Any, V>(
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
 ) {
     private val inFlight = ConcurrentHashMap<K, Deferred<V>>()

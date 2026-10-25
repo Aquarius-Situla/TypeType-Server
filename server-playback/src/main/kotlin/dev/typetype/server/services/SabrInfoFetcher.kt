@@ -21,7 +21,7 @@ class SabrInfoFetcher(
     private val infoTimeoutMs: Long = SabrSessionStoreDefaults.INFO_TIMEOUT_MS,
 ) {
     private val repository = SabrInfoRepository(infoCache, sharedCache, sessionEpoch)
-    private val singleFlight = SingleFlight<SabrInfoFetchKey, SabrPreparedInfo?>()
+    private val singleFlight = KeyedSingleFlight<SabrInfoFetchKey, SabrPreparedInfo?>()
     private val protectedContextRecovery = SabrProtectedContextRecovery(tokenClient)
 
     suspend fun fetchInfo(

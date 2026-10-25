@@ -11,7 +11,7 @@ class SabrBootstrapStreamService(
     private val liveHlsStreamService: StreamService,
     private val cache: SabrBootstrapCache = SabrBootstrapCache(),
 ) : StreamService {
-    private val singleFlight = SingleFlight<String, ExtractionResult<StreamResponse>>()
+    private val singleFlight = KeyedSingleFlight<String, ExtractionResult<StreamResponse>>()
 
     override suspend fun getStreamInfo(url: String): ExtractionResult<StreamResponse> {
         val videoId = youtubeVideoId(url)
