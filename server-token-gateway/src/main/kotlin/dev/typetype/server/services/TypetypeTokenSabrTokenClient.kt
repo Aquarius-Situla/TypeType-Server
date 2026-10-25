@@ -15,8 +15,10 @@ import java.nio.charset.StandardCharsets
 
 class TypetypeTokenSabrTokenClient(
     private val tokenServiceUrl: String,
-    private val client: OkHttpClient = OkHttpClient(),
+    client: OkHttpClient = OkHttpClient(),
 ) {
+    internal val client: OkHttpClient = TypetypeTokenHttpClient.bounded(client)
+
     fun fetch(videoId: String, forceRefresh: Boolean = false, refreshVideo: Boolean = false): SabrTokenBundle? {
         return fetch(videoId, forceRefresh, refreshVideo, logIdentifier = true)
     }

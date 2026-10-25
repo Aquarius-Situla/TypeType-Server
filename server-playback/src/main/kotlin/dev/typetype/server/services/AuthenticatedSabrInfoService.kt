@@ -21,7 +21,7 @@ class AuthenticatedSabrInfoService(
     private val visitorDataFetcher: () -> String = AuthenticatedYoutubeVisitorData::fetch,
     private val probe: AuthenticatedSabrProbe = PipePipeAuthenticatedSabrProbe,
     private val cache: AuthenticatedSabrInfoCache = AuthenticatedSabrInfoCache(),
-    private val tvClient: YoutubeTvOauthPlayerClient = YoutubeTvOauthPlayerClient(),
+    private val tvClient: YoutubeTvOauthPlayerClient,
     private val bindingClient: TypetypeTokenYoutubeSessionClient? = null,
 ) {
     private val oauthInfoService = AuthenticatedSabrOauthInfoService(

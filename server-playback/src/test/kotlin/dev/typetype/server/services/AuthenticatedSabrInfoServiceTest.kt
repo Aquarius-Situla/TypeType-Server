@@ -69,6 +69,7 @@ class AuthenticatedSabrInfoServiceTest {
             tokenClient,
             visitorDataFetcher = { SESSION_BINDING },
             probe = probe,
+            tvClient = mockk(relaxed = true),
         )
 
         val result = service.fetch(USER_ID, VIDEO_ID) as AuthenticatedSabrInfoResult.Ready
@@ -94,6 +95,7 @@ class AuthenticatedSabrInfoServiceTest {
             tokenClient,
             visitorDataFetcher = { SESSION_BINDING },
             probe = probe,
+            tvClient = mockk(relaxed = true),
         )
 
         val metadata = service.fetch(USER_ID, VIDEO_ID)
@@ -109,7 +111,7 @@ class AuthenticatedSabrInfoServiceTest {
     fun `guest playback does not inspect connected credentials`() = runBlocking {
         val sessions = mockk<YoutubeSessionService>()
         val tokenClient = mockk<TypetypeTokenSabrTokenClient>()
-        val service = AuthenticatedSabrInfoService(sessions, tokenClient)
+        val service = AuthenticatedSabrInfoService(sessions, tokenClient, tvClient = mockk(relaxed = true))
 
         val result = service.fetch("guest:anonymous", VIDEO_ID)
 
@@ -129,6 +131,7 @@ class AuthenticatedSabrInfoServiceTest {
             sessions,
             tokenClient,
             visitorDataFetcher = { SESSION_BINDING },
+            tvClient = mockk(relaxed = true),
         )
 
         val result = service.fetch(USER_ID, VIDEO_ID)
@@ -151,6 +154,7 @@ class AuthenticatedSabrInfoServiceTest {
             tokenClient,
             visitorDataFetcher = { SESSION_BINDING },
             probe = probe,
+            tvClient = mockk(relaxed = true),
         )
 
         assertThrows(CancellationException::class.java) {

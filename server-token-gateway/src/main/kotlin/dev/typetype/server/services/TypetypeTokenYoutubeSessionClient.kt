@@ -29,8 +29,10 @@ import kotlin.coroutines.resume
 
 class TypetypeTokenYoutubeSessionClient(
     private val tokenServiceUrl: String,
-    private val client: OkHttpClient = OkHttpClient(),
+    client: OkHttpClient = OkHttpClient(),
 ) {
+    internal val client: OkHttpClient = TypetypeTokenHttpClient.bounded(client)
+
     suspend fun importSessionBinding(cookies: String): TokenSessionBinding? =
         withContext(Dispatchers.IO) {
             val body = JSONObject().put("cookies", cookies).toString()
