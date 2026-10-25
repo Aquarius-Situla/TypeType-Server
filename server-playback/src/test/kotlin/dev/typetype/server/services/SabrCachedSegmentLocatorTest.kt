@@ -7,6 +7,7 @@ import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertInstanceOf
 import org.junit.jupiter.api.Test
 import dev.typetype.server.sabr.YoutubeSabrFormat
 import dev.typetype.server.sabr.YoutubeSabrInfo
@@ -31,6 +32,24 @@ class SabrBootstrapStreamServiceTest {
         coVerify(exactly = 0) { sessionStore.fetchInfo(any(), any()) }
         coVerify(exactly = 1) { sessionStore.rememberPreparedInfo(VIDEO_ID, any()) }
         coVerify(exactly = 1) { tokenClient.fetchPlaybackSession(VIDEO_ID) }
+    }
+
+    @Test
+    fun `does not remember prepared info bound to an older visitor`() = runTest {
+        val sessionStore = mockk<SabrSessionStore>()
+        val tokenClient = mockk<TypetypeTokenYoutubeSessionClient>()
+        val stale = preparedInfo()
+        val fresh = tokenBundle().let {
+            SabrTokenBundle(it.videoId, it.visitorBoundPoToken, it.visitorBoundPoTokenBytes, "renewed-visitor", it.videoBoundPoToken, it.videoBoundPoTokenBytes)
+        }
+        coEvery { tokenClient.fetchPlaybackSession(VIDEO_ID) } returns tokenSession(stale.info, fresh)
+        coEvery { sessionStore.fetchInfo(VIDEO_ID, cachedFirst = true) } returns stale
+        val service = SabrBootstrapStreamService(sessionStore, tokenClient, mockk<StreamService>())
+
+        val result = service.getStreamInfo(YOUTUBE_URL)
+
+        assertInstanceOf(ExtractionResult.Success::class.java, result)
+        coVerify(exactly = 0) { sessionStore.rememberPreparedInfo(any(), any()) }
     }
 
     @Test

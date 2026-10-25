@@ -16,8 +16,9 @@ class SabrInfoFetcher(
     private val infoCache: SabrPreparedInfoCache = SabrPreparedInfoCache(),
     sharedCache: CacheService? = null,
     private val playerInfoProbe: SabrPlayerInfoProbe = PipePipeSabrPlayerInfoProbe,
+    private val sessionEpoch: ProviderSessionEpoch = ProviderSessionEpoch(),
 ) {
-    private val repository = SabrInfoRepository(infoCache, sharedCache)
+    private val repository = SabrInfoRepository(infoCache, sharedCache, sessionEpoch)
     private val protectedContextRecovery = SabrProtectedContextRecovery(tokenClient)
 
     suspend fun fetchInfo(
@@ -86,8 +87,10 @@ class SabrInfoFetcher(
 
     fun evictExpired(): Unit = repository.evictExpired()
 
-    private suspend fun fetchPlayable(videoId: String, startTimeMs: Long): SabrPreparedInfo? =
-        fetchInfoOnce(videoId, startTimeMs)?.let { repository.putPrepared(videoId, startTimeMs, it) }
+    private suspend fun fetchPlayable(videoId: String, startTimeMs: Long): SabrPreparedInfo? {
+        val epoch = sessionEpoch.current()
+        return fetchInfoOnce(videoId, startTimeMs)?.let { repository.putPrepared(videoId, startTimeMs, it, epoch = epoch) }
+    }
 
     private suspend fun fetchInfoOnce(
         videoId: String,

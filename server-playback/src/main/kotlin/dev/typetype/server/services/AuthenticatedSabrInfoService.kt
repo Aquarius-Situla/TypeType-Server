@@ -23,12 +23,14 @@ class AuthenticatedSabrInfoService(
     private val cache: AuthenticatedSabrInfoCache = AuthenticatedSabrInfoCache(),
     private val tvClient: YoutubeTvOauthPlayerClient,
     private val bindingClient: TypetypeTokenYoutubeSessionClient? = null,
+    private val sessionEpoch: ProviderSessionEpoch = ProviderSessionEpoch(),
 ) {
     private val oauthInfoService = AuthenticatedSabrOauthInfoService(
         youtubeSessionService,
         cache,
         tvClient,
         bindingClient,
+        sessionEpoch,
     )
 
     suspend fun fetch(userId: String?, videoId: String): AuthenticatedSabrInfoResult {
@@ -37,7 +39,7 @@ class AuthenticatedSabrInfoService(
         val credentials = youtubeSessionService.connectedCredentials(userId)
             ?: return AuthenticatedSabrInfoResult.NotConnected
         return try {
-            cache.getOrLoad(credentials, videoId) { fetchUncached(credentials, videoId) }
+            cache.getOrLoad(credentials, videoId, sessionEpoch.current()) { fetchUncached(credentials, videoId) }
         } catch (error: TimeoutCancellationException) {
             logger.warn("authenticated_sabr_probe event=timeout videoId={}", videoId)
             AuthenticatedSabrInfoResult.TimedOut

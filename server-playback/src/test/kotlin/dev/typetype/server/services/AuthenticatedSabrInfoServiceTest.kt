@@ -30,7 +30,7 @@ class AuthenticatedSabrInfoServiceTest {
         coEvery { sessions.isOauthSession(USER_ID) } returns true
         coEvery { sessions.oauthAccessToken(USER_ID) } returns "oauth-access-token"
         coEvery { sessions.markUsed(USER_ID) } returns Unit
-        coEvery { cache.getOrLoad(USER_ID, any(), VIDEO_ID, any()) } returns cached
+        coEvery { cache.getOrLoad(USER_ID, any(), VIDEO_ID, any(), any()) } returns cached
         val service = AuthenticatedSabrInfoService(
             sessions,
             tokenClient,
@@ -43,7 +43,7 @@ class AuthenticatedSabrInfoServiceTest {
 
         assertSame(cached, playback)
         assertSame(streamResponse, stream.data)
-        coVerify(exactly = 2) { cache.getOrLoad(USER_ID, any(), VIDEO_ID, any()) }
+        coVerify(exactly = 2) { cache.getOrLoad(USER_ID, any(), VIDEO_ID, any(), any()) }
         coVerify(exactly = 0) { tvClient.player(any(), any(), any(), any(), any()) }
     }
 

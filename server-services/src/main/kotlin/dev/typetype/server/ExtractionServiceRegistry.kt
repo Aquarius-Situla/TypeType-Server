@@ -130,6 +130,7 @@ internal class ExtractionServiceRegistry(
             tokenClient = sabrTokenClient,
             tvClient = egress.tvPlayerClient(),
             bindingClient = tokenYoutubeSessionClient,
+            sessionEpoch = sabrTokenClient.sessionEpoch,
         )
     private val hlsTokenService = youtubeSessionSecret?.let(::SignedHlsManifestTokenService)
     private val youtubeSabrFallbackStreamService = SabrFallbackStreamService(

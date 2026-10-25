@@ -30,7 +30,7 @@ class SabrBootstrapStreamService(
         )
         val prepared = formatsResult
             ?: return ExtractionResult.Failure("SABR playback formats unavailable")
-        sessionStore.rememberPreparedInfo(videoId, prepared)
+        if (prepared.info.visitorData == metadata.token?.visitorData) sessionStore.rememberPreparedInfo(videoId, prepared)
         return ExtractionResult.Success(metadata.toFallbackStreamResponse(videoId))
     }
 }

@@ -24,6 +24,7 @@ class SabrSessionStore(
     private val tokenClient: TypetypeTokenSabrTokenClient = TypetypeTokenSabrTokenClient(tokenServiceUrl),
     private val sessionClient: TypetypeTokenYoutubeSessionClient = TypetypeTokenYoutubeSessionClient(tokenServiceUrl),
     internal val initCache: CacheService? = null,
+    sessionEpoch: ProviderSessionEpoch = tokenClient.sessionEpoch,
 ) {
     private val registry = SabrSessionRegistry()
     private val segmentCache = SabrSegmentCache()
@@ -33,7 +34,12 @@ class SabrSessionStore(
         else tokenClient.fetchSession(holder.key.videoId, binding, refreshVideo = true)
     }
     private val warmer = SabrPlaybackWarmer()
-    private val infoFetcher = SabrInfoFetcher(tokenClient, sessionClient, sharedCache = initCache)
+    private val infoFetcher = SabrInfoFetcher(
+        tokenClient,
+        sessionClient,
+        sharedCache = initCache,
+        sessionEpoch = sessionEpoch,
+    )
     private val sessionFactory = SabrSessionFactory(tokenClient)
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val idleCheckJob: Job = scope.launch { idleEvictionLoop() }

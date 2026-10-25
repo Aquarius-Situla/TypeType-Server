@@ -17,6 +17,7 @@ import java.nio.charset.StandardCharsets
 class TypetypeTokenSabrTokenClient(
     private val tokenServiceUrl: String,
     client: OkHttpClient = OkHttpClient(),
+    val sessionEpoch: ProviderSessionEpoch = ProviderSessionEpoch(),
 ) {
     internal val client: OkHttpClient = TypetypeTokenHttpClient.bounded(client)
 
@@ -27,7 +28,10 @@ class TypetypeTokenSabrTokenClient(
         videoId: String,
         forceRefresh: Boolean = false,
         refreshVideo: Boolean = false,
-    ): TokenServiceResult<SabrTokenBundle> = fetch(videoId, forceRefresh, refreshVideo, logIdentifier = true)
+    ): TokenServiceResult<SabrTokenBundle> =
+        fetch(videoId, forceRefresh, refreshVideo, logIdentifier = true).also { result ->
+            result.valueOrNull()?.let { sessionEpoch.observe(it, renewed = forceRefresh) }
+        }
 
     // The Token minter accepts an opaque binding even though its internal query parameter is named videoId.
     fun fetchBoundToken(binding: String): String? =
