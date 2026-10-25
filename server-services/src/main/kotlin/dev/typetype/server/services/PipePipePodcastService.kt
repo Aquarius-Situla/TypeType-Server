@@ -35,7 +35,7 @@ class PipePipePodcastService : PodcastService {
             val channelId = runCatching { service.channelLHFactory.fromUrl(channelUrl).id }
                 .getOrElse { return@withContext ExtractionResult.BadRequest("Unsupported podcast URL") }
 
-            runCatching {
+            runExtractionCatching {
                 withExtractionRetry {
                     withTimeout(30_000L) { extractPodcastPage(service, channelId, channelUrl, page) }
                 }

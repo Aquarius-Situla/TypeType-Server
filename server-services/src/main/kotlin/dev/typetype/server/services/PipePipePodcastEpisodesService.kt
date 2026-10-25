@@ -24,7 +24,7 @@ class PipePipePodcastEpisodesService {
                 return@withContext ExtractionResult.BadRequest("Podcasts are only supported for YouTube playlists")
             }
 
-            runCatching {
+            runExtractionCatching {
                 withExtractionRetry {
                     withTimeout(30_000L) {
                         if (page == null) PlaylistInfo.getInfo(service, url).toPodcastEpisodesResponse()

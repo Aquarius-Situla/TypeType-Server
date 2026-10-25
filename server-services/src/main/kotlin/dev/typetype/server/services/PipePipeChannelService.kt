@@ -25,7 +25,7 @@ class PipePipeChannelService : ChannelService {
             runCatching { normalizedSort.toYouTubeChannelTabSortFilter() }
                 .getOrElse { return@withContext ExtractionResult.BadRequest(it.message ?: "Invalid 'sort' parameter") }
 
-            runCatching {
+            runExtractionCatching {
                 withExtractionRetry {
                     withTimeout(30_000L) {
                         if (page == null) {
@@ -47,7 +47,7 @@ class PipePipeChannelService : ChannelService {
                 runCatching { nextpage.toPage() }
                     .getOrElse { return@withContext ExtractionResult.BadRequest("Invalid nextpage cursor") }
             } else null
-            runCatching {
+            runExtractionCatching {
                 withExtractionRetry {
                     withTimeout(30_000L) {
                         if (page == null) extractPlaylistFirstPage(url) else extractPlaylistMorePage(url, page)

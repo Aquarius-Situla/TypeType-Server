@@ -1,6 +1,7 @@
 package dev.typetype.server.services
 
 import dev.typetype.server.cache.CacheService
+import dev.typetype.server.models.ExtractionFailureKind
 import dev.typetype.server.models.ExtractionResult
 import dev.typetype.server.models.StreamResponse
 import io.mockk.coEvery
@@ -79,6 +80,7 @@ class AuthenticatedSabrTimeoutTest {
 
         assertTrue(result is ExtractionResult.Failure)
         assertEquals("Timed out loading authenticated YouTube stream", (result as ExtractionResult.Failure).message)
+        assertEquals(ExtractionFailureKind.UpstreamTimeout, result.kind)
         coVerify(exactly = 0) { metadata.markYoutubeSessionNeedsReconnect(any()) }
     }
 

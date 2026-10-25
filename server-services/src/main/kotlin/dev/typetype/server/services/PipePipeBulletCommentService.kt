@@ -23,10 +23,10 @@ class PipePipeBulletCommentService : BulletCommentService {
                     .getOrElse { return@withContext ExtractionResult.BadRequest("Invalid nextpage cursor") }
             } else null
 
-            runCatching {
+            runExtractionCatching {
                 val service = NewPipe.getServiceByUrl(url)
                 if (!service.serviceInfo.mediaCapabilities.contains(MediaCapability.BULLET_COMMENTS)) {
-                    return@runCatching BulletCommentsPageResponse(emptyList(), null)
+                    return@runExtractionCatching BulletCommentsPageResponse(emptyList(), null)
                 }
                 if (service.serviceId == BILIBILI_SERVICE_ID && page == null) {
                     withTimeout(30_000L) { service.getStreamExtractor(url).fetchPage() }

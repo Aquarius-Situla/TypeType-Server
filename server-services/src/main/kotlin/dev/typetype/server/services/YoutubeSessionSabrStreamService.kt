@@ -2,11 +2,14 @@ package dev.typetype.server.services
 
 import dev.typetype.server.cache.CacheJson
 import dev.typetype.server.cache.CacheService
+import dev.typetype.server.models.ExtractionFailureKind
 import dev.typetype.server.models.ExtractionResult
 import dev.typetype.server.models.StreamResponse
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withTimeout
 import org.slf4j.LoggerFactory
 import java.util.concurrent.ConcurrentHashMap
@@ -78,8 +81,13 @@ class YoutubeSessionSabrStreamService(
             }
         }
     } catch (_: TimeoutCancellationException) {
+        currentCoroutineContext().ensureActive()
         logger.warn("authenticated_sabr_stream event=overall_timeout_transient_failure")
-        ExtractionResult.Failure("Timed out loading authenticated YouTube stream")
+        ExtractionResult.Failure(
+            "Timed out loading authenticated YouTube stream",
+            StreamExtractionErrorMapper.UPSTREAM_TIMEOUT_CODE,
+            ExtractionFailureKind.UpstreamTimeout,
+        )
     }
 
     private suspend fun cachedStream(key: String): ExtractionResult<StreamResponse>? {

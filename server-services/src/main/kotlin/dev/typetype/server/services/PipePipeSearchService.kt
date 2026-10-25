@@ -56,7 +56,7 @@ class PipePipeSearchService : SearchService {
             }
             val contentKind = contentFilter.toSearchContentKind(selectedContentFilter)
 
-            runCatching {
+            runExtractionCatching {
                 withExtractionRetry {
                     withTimeout(30_000L) {
                         if (page == null) {
