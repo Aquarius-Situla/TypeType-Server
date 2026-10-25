@@ -5,7 +5,10 @@ import dev.typetype.server.cache.CacheService
 import dev.typetype.server.models.ExtractionFailureKind
 import dev.typetype.server.models.ExtractionResult
 import dev.typetype.server.models.StreamResponse
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.coroutines.coroutineContext
@@ -35,7 +38,7 @@ class CachedStreamService(
         cachedStream(key)?.let { return it }
         val pending = CompletableDeferred<ExtractionResult<StreamResponse>>()
         val existing = inFlight.putIfAbsent(key, pending)
-        if (existing != null) return existing.await()
+        if (existing != null) return awaitShared(url, existing)
         return try {
             val result = getCachedOrLoad(url, key)
             pending.complete(result)
@@ -46,6 +49,16 @@ class CachedStreamService(
         } finally {
             inFlight.remove(key, pending)
         }
+    }
+
+    private suspend fun awaitShared(
+        url: String,
+        shared: CompletableDeferred<ExtractionResult<StreamResponse>>,
+    ): ExtractionResult<StreamResponse> = try {
+        shared.await()
+    } catch (_: CancellationException) {
+        currentCoroutineContext().ensureActive()
+        getStreamInfo(url)
     }
 
     private suspend fun getCachedOrLoad(url: String, key: String): ExtractionResult<StreamResponse> {

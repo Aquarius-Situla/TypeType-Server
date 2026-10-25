@@ -34,7 +34,7 @@ class YoutubeSessionSabrStreamService(
 
         val pending = CompletableDeferred<ExtractionResult<StreamResponse>?>()
         val existing = inFlight.putIfAbsent(key, pending)
-        if (existing != null) return existing.await()
+        if (existing != null) return awaitShared(userId, url, existing)
         return try {
             cachedStream(key)?.let {
                 pending.complete(it)
@@ -50,6 +50,17 @@ class YoutubeSessionSabrStreamService(
         } finally {
             inFlight.remove(key, pending)
         }
+    }
+
+    private suspend fun awaitShared(
+        userId: String,
+        url: String,
+        shared: CompletableDeferred<ExtractionResult<StreamResponse>?>,
+    ): ExtractionResult<StreamResponse>? = try {
+        shared.await()
+    } catch (_: CancellationException) {
+        currentCoroutineContext().ensureActive()
+        getStreamInfo(userId, url)
     }
 
     private suspend fun loadStreamInfo(
