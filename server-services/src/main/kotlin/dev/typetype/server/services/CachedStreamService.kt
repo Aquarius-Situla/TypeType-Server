@@ -25,6 +25,7 @@ class CachedStreamService(
         private const val DEFAULT_CACHE_PREFIX = "stream:v6"
 
         const val PACED_CODE = "provider_paced"
+        const val PACED_RETRY_AFTER_SECONDS = 30L
 
         fun cacheKey(url: String): String = "$DEFAULT_CACHE_PREFIX:$url"
     }
@@ -52,10 +53,10 @@ class CachedStreamService(
         val nobodyWaits = coroutineContext[StreamRequestWatch.NobodyWaiting] != null
         val counted = coroutineContext[StreamRequestWatch.AlreadyCounted] != null
         if (nobodyWaits && !backgroundAdmitted(counted)) {
-            return ExtractionResult.Failure("The provider is not asked for this video now", PACED_CODE)
+            return paced("The provider is not asked for this video now")
         }
         if (pace != null && isYoutubeUrl(url) && !pace.turn(someoneWaits = !nobodyWaits)) {
-            return ExtractionResult.Failure("Too many videos are being opened at the provider right now", PACED_CODE)
+            return paced("Too many videos are being opened at the provider right now")
         }
         val result = delegate.getStreamInfo(url)
         if (nobodyWaits && !counted) {
@@ -74,6 +75,9 @@ class CachedStreamService(
         }
         return result
     }
+
+    private fun paced(message: String): ExtractionResult.Failure =
+        ExtractionResult.Failure(message, PACED_CODE, ExtractionFailureKind.RateLimited, PACED_RETRY_AFTER_SECONDS)
 
     private suspend fun backgroundAdmitted(counted: Boolean): Boolean {
         val watch = watch ?: return true
