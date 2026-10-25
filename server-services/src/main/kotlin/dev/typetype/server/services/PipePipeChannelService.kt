@@ -78,7 +78,9 @@ class PipePipeChannelService : ChannelService, ChannelVideosSource {
             val extractor = service.channelTabExtractor(url, channelId(channelUrl, service), tab, sort)
             extractor.fetchPage()
             val tabInfo = ChannelTabInfo.getInfo(extractor)
-            val metadata = if (withMetadata) runCatching { ChannelInfo.getInfo(channelUrl) }.getOrNull() else null
+            val videos = tabInfo.toChannelTabResponse()
+            if (!withMetadata) return videos
+            val metadata = runCatching { ChannelInfo.getInfo(channelUrl) }.getOrNull() ?: return videos.copy(name = "")
             return tabInfo.toChannelTabResponse(metadata)
         }
         return ChannelInfo.getInfo(url).toChannelResponse()

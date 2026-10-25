@@ -9,6 +9,7 @@ import dev.typetype.server.models.ExtractionResult
 import dev.typetype.server.services.CachedChannelVideosSource
 import dev.typetype.server.services.ChannelService
 import dev.typetype.server.services.ChannelVideosSource
+import dev.typetype.server.services.PublicCacheKey
 import dev.typetype.server.services.SubscriptionFeedService
 import dev.typetype.server.services.SubscriptionsService
 import kotlinx.coroutines.test.runTest
@@ -48,7 +49,7 @@ class CachedChannelVideosSourceTest {
 
         assertEquals(listOf(url), tabRequests)
         assertTrue(pageRequests.isEmpty())
-        assertEquals(listOf(600L), cache.ttls.values.toList())
+        assertEquals(600L, cache.ttls[PublicCacheKey.of("channel-videos", url)])
     }
 
     @Test

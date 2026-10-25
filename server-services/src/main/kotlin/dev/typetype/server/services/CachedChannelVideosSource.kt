@@ -13,10 +13,12 @@ class CachedChannelVideosSource(
         if (url.toChannelTab(null) == null) return channelService.getChannel(url, null)
         return PublicExtractionCache.getOrLoad(
             cache = cache,
-            area = CACHE_AREA,
+            area = PublicCacheArea(
+                CACHE_AREA,
+                ChannelResponse.serializer(),
+                admission = PublicCacheAdmissions.channelVideos(url, PublicCachePolicy.feedTabTtl(url)),
+            ),
             key = PublicCacheKey.of(CACHE_AREA, url),
-            serializer = ChannelResponse.serializer(),
-            ttlSeconds = { PublicCachePolicy.feedTabTtl(url) },
         ) { tabVideos.firstPage(url) }
     }
 
