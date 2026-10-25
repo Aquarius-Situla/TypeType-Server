@@ -88,4 +88,12 @@ class StreamExtractionErrorCauseTest {
 
         assertEquals(StreamExtractionErrorMapper.UPSTREAM_FAILURE_CODE, (result as ExtractionResult.Failure).code)
     }
+
+    @Test
+    fun `maps illegal arguments to a deterministic unavailable failure`() {
+        val result = StreamExtractionErrorMapper.map<Any>(IllegalArgumentException("unsupported url"))
+
+        assertEquals(ExtractionFailureKind.Unavailable, (result as ExtractionResult.Failure).kind)
+        assertEquals(StreamExtractionErrorMapper.UPSTREAM_FAILURE_CODE, result.code)
+    }
 }

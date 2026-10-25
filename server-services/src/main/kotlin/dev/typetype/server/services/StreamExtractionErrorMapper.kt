@@ -107,6 +107,11 @@ object StreamExtractionErrorMapper {
             PROVIDER_DATA_MISSING_CODE,
             ExtractionFailureKind.Unavailable,
         )
+        chain.any { it is IllegalArgumentException } -> ExtractionResult.Failure(
+            sanitize(error.message) ?: fallback,
+            UPSTREAM_FAILURE_CODE,
+            ExtractionFailureKind.Unavailable,
+        )
         else -> ExtractionResult.Failure(sanitize(error.message) ?: fallback, UPSTREAM_FAILURE_CODE)
     }
 

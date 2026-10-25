@@ -20,6 +20,7 @@ class CachedStreamService(
     private val watch: StreamRequestWatch? = null,
     private val pace: StreamOpenPace? = null,
     private val renewal: ProviderSessionRenewal? = null,
+    private val failures: StreamFailureMemory = StreamFailureMemory(),
 ) : StreamService {
 
     private val inFlight = ConcurrentHashMap<String, CompletableDeferred<ExtractionResult<StreamResponse>>>()
@@ -36,6 +37,7 @@ class CachedStreamService(
     override suspend fun getStreamInfo(url: String): ExtractionResult<StreamResponse> {
         val key = "$cachePrefix:$url"
         cachedStream(key)?.let { return it }
+        failures.recall(key)?.let { return it }
         val pending = CompletableDeferred<ExtractionResult<StreamResponse>>()
         val existing = inFlight.putIfAbsent(key, pending)
         if (existing != null) return awaitShared(url, existing)
@@ -78,6 +80,7 @@ class CachedStreamService(
             watch?.opened(result)
         }
         if ((result as? ExtractionResult.Failure)?.kind == ExtractionFailureKind.ProviderAccessBlocked) renewal?.refused(url)
+        failures.remember(key, result)
         if (result is ExtractionResult.Success) {
             val ttl = result.data.streamCacheTtlSeconds()
             if (ttl > 0) {
