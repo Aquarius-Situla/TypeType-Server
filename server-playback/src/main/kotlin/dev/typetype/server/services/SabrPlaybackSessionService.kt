@@ -49,7 +49,10 @@ class SabrPlaybackSessionService(private val sessionStore: SabrSessionStore) {
                     val missing = initialization.missingTracks(audioOnly, video.itag, audio.itag)
                     holder.setActiveTracks(videoActive = !audioOnly, audioActive = true)
                     holder.setPlayerTimeMs(startTimeMs)
-                    holder.failTerminal(sabrRecoverableFailureMessage("SABR initialization unavailable for $missing"))
+                    holder.failTerminal(
+                        sabrRecoverableFailureMessage("SABR initialization unavailable for $missing"),
+                        if (initialization.timedOut) SabrFailureKind.UPSTREAM_TIMEOUT else SabrFailureKind.CONTENT_UNAVAILABLE,
+                    )
                     return SabrPlaybackPreparation(holder, startTimeMs, ready = false)
                 }
             }

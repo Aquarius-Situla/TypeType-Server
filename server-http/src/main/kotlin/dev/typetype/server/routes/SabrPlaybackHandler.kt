@@ -8,14 +8,12 @@ import dev.typetype.server.services.AdminSettingsService
 import dev.typetype.server.services.AuthenticatedSabrInfoService
 import dev.typetype.server.services.AuthService
 import dev.typetype.server.services.SabrPreparedInfo
-import dev.typetype.server.services.SabrPlaybackSegmentResult
 import dev.typetype.server.services.SabrPlaybackSessionService
 import dev.typetype.server.services.SabrPlaybackInfoResolver
 import dev.typetype.server.services.SabrSessionHolder
 import dev.typetype.server.PlaybackTraceLog
 import dev.typetype.server.services.SabrSessionStore
 import dev.typetype.server.services.StreamService
-import dev.typetype.server.services.markServed
 import dev.typetype.server.services.requiresYoutubeSession
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.ApplicationCall
@@ -132,30 +130,11 @@ internal class SabrPlaybackHandler(
         } else {
             playbackService.fetchMedia(holder, format, seq, PLAYBACK_SEGMENT_TIMEOUT_MS, generation)
         }
-        respondSegment(call, result)
+        call.respondSabrSegment(result, RETRY_AFTER_MS)
     }
 
-    private suspend fun respondPrepared(call: ApplicationCall, holder: SabrSessionHolder, videoId: String, startTimeMs: Long, ready: Boolean) {
-        val response = holder.toPlaybackResponse(videoId, startTimeMs, ready, RETRY_AFTER_MS)
-        call.respond(if (ready) HttpStatusCode.OK else HttpStatusCode.Accepted, response)
-    }
-
-    private suspend fun respondSegment(call: ApplicationCall, result: SabrPlaybackSegmentResult): Unit = when (result) {
-        is SabrPlaybackSegmentResult.Ready -> call.respondSabrMediaBytes(result.mimeType, result.bytes)
-        is SabrPlaybackSegmentResult.Stream -> call.respondSabrMediaStream(
-            result.mimeType,
-            result.segment.length.toLong(),
-            result.segment::openStream,
-        ) { result.holder.markServed(result.segment, result.generation) }
-        is SabrPlaybackSegmentResult.Retry -> call.respond(
-            HttpStatusCode.Accepted,
-            result.holder.toRetryPlaybackResponse(result.status, RETRY_AFTER_MS),
-        )
-        is SabrPlaybackSegmentResult.Stale -> call.respond(HttpStatusCode.Conflict, ErrorResponse("Stale SABR playback generation"))
-        is SabrPlaybackSegmentResult.Failed -> call.respondSabrFailure(SabrFailureResponse.of(result.holder))
-        SabrPlaybackSegmentResult.InvalidSequence -> call.respond(HttpStatusCode.BadRequest, ErrorResponse("Invalid seq"))
-        SabrPlaybackSegmentResult.InvalidGeneration -> call.respond(HttpStatusCode.BadRequest, ErrorResponse("Invalid generation"))
-    }
+    private suspend fun respondPrepared(call: ApplicationCall, holder: SabrSessionHolder, videoId: String, startTimeMs: Long, ready: Boolean) =
+        call.respondSabrPreparation(sabrSessionStore, holder, videoId, startTimeMs, ready, RETRY_AFTER_MS)
 
     private suspend fun validateAccess(call: ApplicationCall, videoId: String, access: AccessRouteProfile): Boolean {
         if (!access.profile.enabled) return true
