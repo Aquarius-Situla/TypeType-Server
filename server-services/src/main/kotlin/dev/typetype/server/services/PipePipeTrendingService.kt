@@ -34,7 +34,7 @@ class PipePipeTrendingService(
                 }
             }.fold(
                 onSuccess = { ExtractionResult.Success(it) },
-                onFailure = { ExtractionResult.Failure(it.message ?: "Trending failed") }
+                onFailure = { transientAwareFailure(it, "Trending failed") }
             )
         }
 }

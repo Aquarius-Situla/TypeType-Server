@@ -35,7 +35,7 @@ class PipePipeCommentService : CommentService {
                 }
             }.fold(
                 onSuccess = { ExtractionResult.Success(it) },
-                onFailure = { ExtractionResult.Failure(it.message ?: "Comment extraction failed") }
+                onFailure = { transientAwareFailure(it, "Comment extraction failed") }
             )
         }
 

@@ -18,7 +18,7 @@ class PipePipeSuggestionService : SuggestionService {
                 }
             }.fold(
                 onSuccess = { ExtractionResult.Success(it) },
-                onFailure = { ExtractionResult.Failure(it.message ?: "Suggestion extraction failed") }
+                onFailure = { transientAwareFailure(it, "Suggestion extraction failed") }
             )
         }
 }

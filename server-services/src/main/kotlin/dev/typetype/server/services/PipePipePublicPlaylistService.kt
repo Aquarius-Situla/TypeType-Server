@@ -32,7 +32,7 @@ class PipePipePublicPlaylistService : PublicPlaylistService {
                 }
             }.fold(
                 onSuccess = { ExtractionResult.Success(it) },
-                onFailure = { ExtractionResult.Failure(it.message ?: "Playlist extraction failed") }
+                onFailure = { transientAwareFailure(it, "Playlist extraction failed") }
             )
         }
 

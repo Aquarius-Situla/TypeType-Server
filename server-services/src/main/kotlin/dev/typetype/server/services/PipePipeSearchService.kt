@@ -68,7 +68,7 @@ class PipePipeSearchService : SearchService {
                 }
             }.fold(
                 onSuccess = { ExtractionResult.Success(it) },
-                onFailure = { ExtractionResult.Failure(it.message ?: "Search failed") },
+                onFailure = { transientAwareFailure(it, "Search failed") },
             )
         }
 
@@ -93,7 +93,7 @@ class PipePipeSearchService : SearchService {
                 )
             }.fold(
                 onSuccess = { ExtractionResult.Success(it) },
-                onFailure = { ExtractionResult.Failure(it.message ?: "Search filters failed") },
+                onFailure = { transientAwareFailure(it, "Search filters failed") },
             )
         }
 }

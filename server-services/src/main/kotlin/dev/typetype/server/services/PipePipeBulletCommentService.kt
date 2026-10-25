@@ -41,7 +41,7 @@ class PipePipeBulletCommentService : BulletCommentService {
                 }
             }.fold(
                 onSuccess = { ExtractionResult.Success(it) },
-                onFailure = { ExtractionResult.Failure(it.message ?: "Bullet comment extraction failed") },
+                onFailure = { transientAwareFailure(it, "Bullet comment extraction failed") },
             )
         }
 

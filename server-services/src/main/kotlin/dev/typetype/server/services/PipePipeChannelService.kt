@@ -37,7 +37,7 @@ class PipePipeChannelService : ChannelService {
                 }
             }.fold(
                 onSuccess = { ExtractionResult.Success(it) },
-                onFailure = { ExtractionResult.Failure(it.message ?: "Channel extraction failed") }
+                onFailure = { transientAwareFailure(it, "Channel extraction failed") }
             )
         }
 
@@ -55,7 +55,7 @@ class PipePipeChannelService : ChannelService {
                 }
             }.fold(
                 onSuccess = { ExtractionResult.Success(it) },
-                onFailure = { ExtractionResult.Failure(it.message ?: "Channel playlists extraction failed") }
+                onFailure = { transientAwareFailure(it, "Channel playlists extraction failed") }
             )
         }
 

@@ -41,7 +41,7 @@ class PipePipePodcastService : PodcastService {
                 }
             }.fold(
                 onSuccess = { ExtractionResult.Success(it) },
-                onFailure = { ExtractionResult.Failure(it.message ?: "Podcast extraction failed") }
+                onFailure = { transientAwareFailure(it, "Podcast extraction failed") }
             )
         }
 
