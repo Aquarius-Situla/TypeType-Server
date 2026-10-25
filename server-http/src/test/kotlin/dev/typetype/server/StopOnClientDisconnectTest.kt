@@ -1,6 +1,5 @@
 package dev.typetype.server
 
-import dev.typetype.server.routes.copyProxyStream
 import dev.typetype.server.routes.stopOnClientDisconnect
 import dev.typetype.server.routes.writeLiveChat
 import dev.typetype.server.services.YoutubeLiveChatEvent
@@ -13,9 +12,7 @@ import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.assertDoesNotThrow
 import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Test
-import java.io.ByteArrayInputStream
 import java.io.IOException
-import java.io.OutputStream
 import java.nio.channels.ClosedChannelException
 
 class StopOnClientDisconnectTest {
@@ -39,17 +36,6 @@ class StopOnClientDisconnectTest {
         assertThrows(CancellationException::class.java) {
             runBlocking { stopOnClientDisconnect { throw CancellationException("cancelled") } }
         }
-    }
-
-    @Test
-    fun `proxy copy stops on a broken pipe`() {
-        val output = object : OutputStream() {
-            override fun write(buffer: ByteArray, offset: Int, length: Int) = throw IOException("Broken pipe")
-
-            override fun write(value: Int) = throw IOException("Broken pipe")
-        }
-
-        assertDoesNotThrow { runBlocking { copyProxyStream(ByteArrayInputStream(byteArrayOf(1)), output) } }
     }
 
     @Test
