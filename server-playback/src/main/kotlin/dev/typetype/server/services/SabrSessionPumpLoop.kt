@@ -19,6 +19,14 @@ class SabrSessionPumpLoop(
     private val onResolved: (SabrSessionHolder, SabrMediaSegment) -> Unit = { _, _ -> },
 ) {
     suspend fun run(isAlive: () -> Boolean, holder: SabrSessionHolder, intervalMs: Long) {
+        try {
+            runRounds(isAlive, holder, intervalMs)
+        } finally {
+            holder.signalPlaybackProgress()
+        }
+    }
+
+    private suspend fun runRounds(isAlive: () -> Boolean, holder: SabrSessionHolder, intervalMs: Long) {
         val localization = Localization("en", "US")
         val runtime = runtimeFactory()
         var consecutiveIoErrors = 0
@@ -27,6 +35,7 @@ class SabrSessionPumpLoop(
                 val wakeVersion = holder.pumpWakeVersion()
                 val requestNumber = holder.session.requestNumber
                 val immediate = holder.pumpMutex.withLock { pumpRound(holder, localization, runtime) }
+                holder.signalPlaybackProgress()
                 if (holder.session.requestNumber != requestNumber) consecutiveIoErrors = 0
                 if (immediate) delay(0L)
                 else holder.awaitPumpWake(wakeVersion, pumpDemandDelayMs(holder, intervalMs))

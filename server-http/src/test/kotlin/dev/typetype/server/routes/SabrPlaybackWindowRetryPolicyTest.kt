@@ -7,7 +7,7 @@ class SabrPlaybackWindowRetryPolicyTest {
     @Test
     fun firstPendingVodWindowUsesShortRetry() {
         assertEquals(
-            150L,
+            100L,
             playbackWindowRetryAfterMs(
                 isLive = false,
                 initialWindowReady = false,
