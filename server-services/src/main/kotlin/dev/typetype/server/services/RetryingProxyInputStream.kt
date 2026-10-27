@@ -14,9 +14,13 @@ class RetryingProxyInputStream(
     initialResponse: Response,
     private var attemptsRemaining: Int,
     private val checkActive: () -> Unit = {},
+    private val mirrorSwitcher: BilibiliSlowMirrorSwitcher? = null,
+    initialOpenNanos: Long = 0,
+    private val nanoTime: () -> Long = System::nanoTime,
 ) : InputStream() {
     private var response = initialResponse
     private var source = response.body.byteStream()
+    private var upstreamWaitNanos = initialOpenNanos.coerceAtLeast(0)
     private val status = response.code
     private val length = response.body.contentLength()
     private val headers = listOf("Content-Range", "Content-Type", "Content-Encoding", "ETag")
@@ -40,9 +44,21 @@ class RetryingProxyInputStream(
         if (count == 0) return 0
         if (length >= 0 && delivered == length) return -1
         while (true) {
+            mirrorSwitcher?.maybeSwitch(request, response, delivered, upstreamWaitNanos)?.let { switched ->
+                val previous = response
+                response = switched.response
+                source = switched.source
+                previous.close()
+            }
             try {
                 val size = if (length < 0) count else minOf(count.toLong(), length - delivered).toInt()
-                val read = source.read(bytes, offset, size)
+                val started = nanoTime()
+                val read = try {
+                    source.read(bytes, offset, size)
+                } finally {
+                    val elapsed = (nanoTime() - started).coerceAtLeast(0)
+                    upstreamWaitNanos = (upstreamWaitNanos + elapsed).coerceAtLeast(upstreamWaitNanos)
+                }
                 if (read < 0 && length >= 0 && delivered < length) throw EOFException("Incomplete proxy body")
                 if (read > 0) {
                     digest?.update(bytes, offset, read)

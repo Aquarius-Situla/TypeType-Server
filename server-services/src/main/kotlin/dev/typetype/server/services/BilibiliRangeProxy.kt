@@ -5,6 +5,7 @@ import dev.typetype.server.models.ProxyResponse
 import okhttp3.Request
 import okhttp3.Response
 import java.io.IOException
+import kotlinx.coroutines.sync.Semaphore
 
 private const val BILIBILI_RANGE_ATTEMPTS = 3
 
@@ -12,10 +13,16 @@ fun readBilibiliRangeWithRetry(
     execute: (Request) -> Response,
     request: Request,
     checkActive: () -> Unit = {},
+    alternateUrls: List<String> = emptyList(),
+    mirrorExecute: ((Request) -> Response)? = null,
+    mirrorPermits: Semaphore? = null,
+    streamReadTimeoutMillis: Int = 10_000,
+    nanoTime: () -> Long = System::nanoTime,
 ): ExtractionResult<ProxyResponse> {
     var lastMessage = "Proxy fetch failed"
     for (attempt in 1..BILIBILI_RANGE_ATTEMPTS) {
         checkActive()
+        val openStarted = nanoTime()
         val response = try {
             execute(request)
         } catch (error: IOException) {
@@ -27,7 +34,15 @@ fun readBilibiliRangeWithRetry(
             response.close()
             continue
         }
-        val stream = RetryingProxyInputStream(execute, request, response, BILIBILI_RANGE_ATTEMPTS - attempt, checkActive)
+        val switcher = if (alternateUrls.isNotEmpty() && mirrorExecute != null && mirrorPermits != null) {
+            BilibiliSlowMirrorSwitcher(
+                mirrorExecute, alternateUrls, mirrorPermits, checkActive, nanoTime, streamReadTimeoutMillis,
+            )
+        } else {
+            null
+        }
+        val stream = RetryingProxyInputStream(execute, request, response, BILIBILI_RANGE_ATTEMPTS - attempt,
+            checkActive, switcher, (nanoTime() - openStarted).coerceAtLeast(0), nanoTime)
         return ExtractionResult.Success(ProxyResponse(
             status = response.code,
             contentType = response.header("Content-Type") ?: "application/octet-stream",
