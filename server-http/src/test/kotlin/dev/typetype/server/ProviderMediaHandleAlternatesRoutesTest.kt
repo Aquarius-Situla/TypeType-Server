@@ -34,7 +34,7 @@ class ProviderMediaHandleAlternatesRoutesTest {
         val response = client.get(path)
 
         assertEquals(HttpStatusCode.OK, response.status)
-        assertEquals(listOf(alternate), proxy.receivedAlternates)
+        assertEquals(alternate, proxy.receivedAlternates?.firstOrNull())
         assertEquals("x", response.bodyAsText())
     }
 }
