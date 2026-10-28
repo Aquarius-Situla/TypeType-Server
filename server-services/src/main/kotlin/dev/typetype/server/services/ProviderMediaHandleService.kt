@@ -68,7 +68,7 @@ class ProviderMediaHandleService(
         }
         val normalizedUrl = stripTrackingParams(target.url.toString())
         val normalizedAlternates = if (target.provider == ProxyProvider.BILIBILI) {
-            alternateUrls.asSequence().take(MAX_ALTERNATE_URLS).mapNotNull { alternate ->
+            (alternateUrls + bilibiliUposMirrorAlternates(normalizedUrl)).asSequence().mapNotNull { alternate ->
                 runCatching {
                     val candidate = requireProxyTarget(stripTrackingParams(alternate))
                     if (candidate.provider != ProxyProvider.BILIBILI ||
@@ -76,7 +76,7 @@ class ProviderMediaHandleService(
                     ) null
                     else stripTrackingParams(candidate.url.toString()).also { mediaHandleTtlSeconds(it) }
                 }.getOrNull()
-            }.filter { it != normalizedUrl }.distinct().toList()
+            }.filter { it != normalizedUrl }.distinct().take(MAX_ALTERNATE_URLS).toList()
         } else {
             emptyList()
         }

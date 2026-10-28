@@ -37,7 +37,10 @@ class BilibiliMediaAlternatesTest {
         val path = service.createPath(primary, alternateUrls = listOf(alternate, otherPath))
         val target = service.resolve(path.substringAfterLast('/'))
 
-        assertEquals(listOf(alternate), target?.alternateUrls)
+        val alternates = target?.alternateUrls.orEmpty()
+        assertEquals(alternate, alternates.first())
+        assertFalse(otherPath in alternates)
+        assertTrue(alternates.all { it.substringBefore('?').endsWith("/video.m4s") })
         assertFalse(path.contains("akamaized"))
         assertFalse(path.contains("bilivideo"))
     }
