@@ -1,9 +1,14 @@
 package dev.typetype.server.services
 
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 
 class BilibiliUposMirrorsTest {
+    @BeforeEach
+    fun setup() {
+        BilibiliMirrorSpeedTracker.reset()
+    }
     @Test
     fun `an upos mirror url gets the other official mirrors with the same signed path`() {
         val url = "https://upos-hz-mirrorakam.akamaized.net/upgcxcode/1/2/3/v.m4s?deadline=1&os=akam&upsig=abc"

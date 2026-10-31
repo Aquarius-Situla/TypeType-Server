@@ -2,6 +2,7 @@ package dev.typetype.server.services
 
 import dev.typetype.server.models.ExtractionResult
 import dev.typetype.server.models.ProxyResponse
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.Request
 import okhttp3.Response
 import java.io.IOException
@@ -18,26 +19,41 @@ fun readBilibiliRangeWithRetry(
     mirrorPermits: Semaphore? = null,
     streamReadTimeoutMillis: Int = 10_000,
     nanoTime: () -> Long = System::nanoTime,
+    cdnRegion: String? = null,
+    enablePrefetch: Boolean = true,
 ): ExtractionResult<ProxyResponse> {
     val isAkamaiBlacklisted = BilibiliAkamaiConfig.isAkamaiBlacklisted()
     val isPrimaryAkamai = BilibiliAkamaiConfig.isAkamaiUrl(request.url.toString())
     val effectiveAlternates = if (alternateUrls.isEmpty()) {
-        bilibiliUposMirrorAlternates(request.url.toString(), isAkamaiBlacklisted)
+        bilibiliUposMirrorAlternates(request.url.toString(), isAkamaiBlacklisted, cdnRegion)
     } else {
         alternateUrls
     }
-    val sortedAlternates = prioritizeUposMirrors(effectiveAlternates.distinct())
+    val sortedAlternates = prioritizeUposMirrors(effectiveAlternates.distinct(), cdnRegion)
 
-    val rawMirrors = if (isAkamaiBlacklisted && isPrimaryAkamai) {
-        sortedAlternates.filter { !BilibiliAkamaiConfig.isAkamaiUrl(it) }
-    } else {
-        listOf(request.url.toString()) + sortedAlternates.filter { it != request.url.toString() }
+    val primaryHost = request.url.host
+    val isPrimaryPreferred = when (cdnRegion?.lowercase()) {
+        "overseas" -> isOverseasUposHost(primaryHost)
+        "domestic" -> isDomesticUposHost(primaryHost)
+        else -> true
     }
-    val mirrors = if (isAkamaiBlacklisted) {
-        val nonAkamai = rawMirrors.filter { !BilibiliAkamaiConfig.isAkamaiUrl(it) }
-        if (nonAkamai.isNotEmpty()) nonAkamai else rawMirrors
+
+    val mirrors = if ((isAkamaiBlacklisted && isPrimaryAkamai) || (!isPrimaryPreferred && sortedAlternates.isNotEmpty())) {
+        val nonAkamai = if (isAkamaiBlacklisted) {
+            sortedAlternates.filter { !BilibiliAkamaiConfig.isAkamaiUrl(it) }
+        } else {
+            sortedAlternates
+        }
+        val remaining = if (isAkamaiBlacklisted && isPrimaryAkamai) emptyList() else listOf(request.url.toString())
+        (nonAkamai + remaining).distinct()
     } else {
-        rawMirrors
+        val base = listOf(request.url.toString()) + sortedAlternates.filter { it != request.url.toString() }
+        if (isAkamaiBlacklisted) {
+            val nonAkamai = base.filter { !BilibiliAkamaiConfig.isAkamaiUrl(it) }
+            if (nonAkamai.isNotEmpty()) nonAkamai else base
+        } else {
+            base
+        }
     }
 
     val rangeHeader = request.header("Range")
@@ -55,6 +71,7 @@ fun readBilibiliRangeWithRetry(
                 end = end,
                 checkActive = checkActive,
                 mirrors = mirrors,
+                enablePrefetch = enablePrefetch,
             )
         }
     }
@@ -78,6 +95,7 @@ private fun readBilibiliSubchunkedRange(
     end: Long,
     checkActive: () -> Unit,
     mirrors: List<String>,
+    enablePrefetch: Boolean = true,
 ): ExtractionResult<ProxyResponse> {
     val subRanges = BilibiliRangeSplitter.splitRange(start, end, MAX_BILIBILI_SUBCHUNK_SIZE)
     val firstRange = subRanges[0]
@@ -134,6 +152,7 @@ private fun readBilibiliSubchunkedRange(
             attemptsPerChunk = BILIBILI_RANGE_ATTEMPTS,
             checkActive = checkActive,
             alternateUrls = otherMirrors,
+            enablePrefetch = enablePrefetch,
         )
 
         return ExtractionResult.Success(ProxyResponse(
@@ -173,7 +192,7 @@ private fun readBilibiliDirectRange(
             lastMessage = error.message ?: "Proxy fetch failed"
             continue
         }
-        if (!response.isSuccessful) {
+        if (!response.isSuccessful && response.code != 206) {
             BilibiliMirrorSpeedTracker.recordFailure(mirror)
             lastMessage = "Upstream returned ${response.code}"
             response.close()

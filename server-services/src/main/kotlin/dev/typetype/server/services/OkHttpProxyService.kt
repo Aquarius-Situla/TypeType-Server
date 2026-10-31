@@ -54,6 +54,15 @@ class OkHttpProxyService(
     override suspend fun pipe(url: String, rangeHeader: String?, domandBid: String?): ExtractionResult<ProxyResponse> =
         pipeInternal(url, rangeHeader, domandBid, providerMediaManifest = false)
 
+    override suspend fun pipe(
+        url: String,
+        rangeHeader: String?,
+        domandBid: String?,
+        cdnRegion: String?,
+        enablePrefetch: Boolean,
+    ): ExtractionResult<ProxyResponse> =
+        pipeInternal(url, rangeHeader, domandBid, providerMediaManifest = false, cdnRegion = cdnRegion, enablePrefetch = enablePrefetch)
+
     override suspend fun pipeProviderMedia(
         url: String,
         rangeHeader: String?,
@@ -68,12 +77,32 @@ class OkHttpProxyService(
     ): ExtractionResult<ProxyResponse> =
         pipeInternal(url, rangeHeader, domandBid, providerMediaManifest = true, alternateUrls = alternateUrls)
 
+    override suspend fun pipeProviderMediaWithAlternates(
+        url: String,
+        rangeHeader: String?,
+        domandBid: String?,
+        alternateUrls: List<String>,
+        cdnRegion: String?,
+        enablePrefetch: Boolean,
+    ): ExtractionResult<ProxyResponse> =
+        pipeInternal(
+            url = url,
+            rangeHeader = rangeHeader,
+            domandBid = domandBid,
+            providerMediaManifest = true,
+            alternateUrls = alternateUrls,
+            cdnRegion = cdnRegion,
+            enablePrefetch = enablePrefetch,
+        )
+
     private suspend fun pipeInternal(
         url: String,
         rangeHeader: String?,
         domandBid: String?,
         providerMediaManifest: Boolean,
         alternateUrls: List<String> = emptyList(),
+        cdnRegion: String? = null,
+        enablePrefetch: Boolean = true,
     ): ExtractionResult<ProxyResponse> {
         val requestContext = currentCoroutineContext()
         return withContext(Dispatchers.IO) {
@@ -110,6 +139,8 @@ class OkHttpProxyService(
                         mirrorExecutor::execute,
                         mirrorPermits,
                         bilibiliProxyClient.readTimeoutMillis,
+                        cdnRegion = cdnRegion,
+                        enablePrefetch = enablePrefetch,
                     )
                 }
                 requestExecutor.execute(request)

@@ -19,6 +19,7 @@ class BilibiliSubchunkInputStream(
     private val attemptsPerChunk: Int = 3,
     private val checkActive: () -> Unit = {},
     private val alternateUrls: List<String> = emptyList(),
+    private val enablePrefetch: Boolean = true,
 ) : InputStream() {
     init {
         require(subRanges.isNotEmpty()) { "subRanges must not be empty" }
@@ -42,7 +43,7 @@ class BilibiliSubchunkInputStream(
     private var prefetchFuture: CompletableFuture<InputStream>? = null
 
     init {
-        if (subRanges.size > 1) {
+        if (enablePrefetch && subRanges.size > 1) {
             triggerPrefetch(1)
         }
     }
@@ -70,7 +71,9 @@ class BilibiliSubchunkInputStream(
                     return -1
                 }
                 currentStream = obtainSubchunkStream(currentIndex)
-                triggerPrefetch(currentIndex + 1)
+                if (enablePrefetch) {
+                    triggerPrefetch(currentIndex + 1)
+                }
                 continue
             }
             return 0

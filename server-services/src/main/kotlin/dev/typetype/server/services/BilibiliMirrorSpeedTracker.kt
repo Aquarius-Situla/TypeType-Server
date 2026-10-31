@@ -38,17 +38,34 @@ object BilibiliMirrorSpeedTracker {
         }
     }
 
-    fun score(urlOrHost: String): Double {
+    private fun regionBucketOffset(host: String, region: String?): Double {
+        return when (region?.lowercase()) {
+            "overseas" -> when {
+                isOverseasUposHost(host) -> 0.0
+                isDomesticUposHost(host) -> 10_000.0
+                else -> 20_000.0
+            }
+            "domestic" -> when {
+                isDomesticUposHost(host) -> 0.0
+                isOverseasUposHost(host) -> 10_000.0
+                else -> 20_000.0
+            }
+            else -> 0.0
+        }
+    }
+
+    fun score(urlOrHost: String, region: String? = null): Double {
         val host = extractHost(urlOrHost) ?: return Double.MAX_VALUE
+        val bucketOffset = regionBucketOffset(host, region)
         val current = stats[host]
         val staticIndex = ALL_UPOS_MIRROR_HOSTS.indexOf(host).let { if (it >= 0) it.toDouble() * 100.0 else 5000.0 }
-        if (current == null) return staticIndex
+        if (current == null) return bucketOffset + staticIndex
 
         synchronized(current) {
             val now = System.currentTimeMillis()
             val inPenalty = (now - current.lastFailureEpochMs) < PENALTY_DURATION_MS && current.consecutiveFailures > 0
             val penalty = if (inPenalty) PENALTY_SCORE * current.consecutiveFailures else 0.0
-            return if (current.sampleCount > 0) {
+            return bucketOffset + if (current.sampleCount > 0) {
                 current.smoothedLatencyMs + penalty
             } else {
                 staticIndex + penalty
@@ -56,8 +73,8 @@ object BilibiliMirrorSpeedTracker {
         }
     }
 
-    fun prioritize(urls: List<String>): List<String> =
-        urls.sortedBy { score(it) }
+    fun prioritize(urls: List<String>, region: String? = null): List<String> =
+        urls.sortedBy { score(it, region) }
 
     fun reset() {
         stats.clear()
