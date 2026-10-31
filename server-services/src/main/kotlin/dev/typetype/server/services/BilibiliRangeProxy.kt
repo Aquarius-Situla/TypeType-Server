@@ -69,15 +69,15 @@ private fun readBilibiliSubchunkedRange(
 ): ExtractionResult<ProxyResponse> {
     val subRanges = BilibiliRangeSplitter.splitRange(start, end, MAX_BILIBILI_SUBCHUNK_SIZE)
     val firstRange = subRanges[0]
-    val activeUrl = mirrors.first()
-    val baseWithActiveUrl = if (activeUrl == request.url.toString()) request else request.newBuilder().url(activeUrl).build()
-    val firstRequest = baseWithActiveUrl.newBuilder()
-        .header("Range", "bytes=${firstRange.start}-${firstRange.end}")
-        .build()
 
     var lastMessage = "Proxy fetch failed"
     for (attempt in 1..BILIBILI_RANGE_ATTEMPTS) {
         checkActive()
+        val activeUrl = mirrors[(attempt - 1) % mirrors.size]
+        val baseWithActiveUrl = if (activeUrl == request.url.toString()) request else request.newBuilder().url(activeUrl).build()
+        val firstRequest = baseWithActiveUrl.newBuilder()
+            .header("Range", "bytes=${firstRange.start}-${firstRange.end}")
+            .build()
         val response = try {
             execute(firstRequest)
         } catch (error: IOException) {

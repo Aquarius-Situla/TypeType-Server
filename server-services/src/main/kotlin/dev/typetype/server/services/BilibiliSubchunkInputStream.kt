@@ -47,30 +47,37 @@ class BilibiliSubchunkInputStream(
             if (readBytes > 0) {
                 return readBytes
             }
-            // Current subchunk completed (EOF), close it and advance
-            stream.close()
-            currentStream = null
-            currentIndex++
-            if (currentIndex >= subRanges.size) {
-                return -1
+            if (readBytes == -1) {
+                // Current subchunk completed (EOF), close it and advance
+                stream.close()
+                currentStream = null
+                currentIndex++
+                if (currentIndex >= subRanges.size) {
+                    return -1
+                }
+                currentStream = openSubchunk(currentIndex)
+                continue
             }
-            currentStream = openSubchunk(currentIndex)
+            return 0
         }
     }
 
     private fun openSubchunk(index: Int): InputStream {
         val range = subRanges[index]
-        val subRequest = baseRequest.newBuilder()
-            .header("Range", "bytes=${range.start}-${range.end}")
-            .build()
+        val mirrors = listOf(baseRequest.url.toString()) + alternateUrls
         var lastError: IOException? = null
         for (attempt in 1..attemptsPerChunk) {
             checkActive()
             if (Thread.currentThread().isInterrupted) {
                 throw lastError ?: IOException("Interrupted while opening subchunk")
             }
+            val currentUrl = mirrors[(attempt - 1) % mirrors.size]
+            val currentRequest = baseRequest.newBuilder()
+                .url(currentUrl)
+                .header("Range", "bytes=${range.start}-${range.end}")
+                .build()
             val response = try {
-                execute(subRequest)
+                execute(currentRequest)
             } catch (error: IOException) {
                 lastError = error
                 continue
@@ -81,13 +88,14 @@ class BilibiliSubchunkInputStream(
                 lastError = IOException("Upstream returned $code for subchunk bytes=${range.start}-${range.end}")
                 continue
             }
+            val remainingMirrors = mirrors.filter { it != currentUrl }
             return RetryingProxyInputStream(
                 execute = execute,
-                request = subRequest,
+                request = currentRequest,
                 initialResponse = response,
                 attemptsRemaining = attemptsPerChunk - attempt,
                 checkActive = checkActive,
-                resumeUrls = alternateUrls,
+                resumeUrls = remainingMirrors,
             )
         }
         throw lastError ?: IOException("Failed to open subchunk after $attemptsPerChunk attempts")
