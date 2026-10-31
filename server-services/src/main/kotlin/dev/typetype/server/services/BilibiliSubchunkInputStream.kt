@@ -2,9 +2,14 @@ package dev.typetype.server.services
 
 import okhttp3.Request
 import okhttp3.Response
+import java.io.ByteArrayInputStream
+import java.io.ByteArrayOutputStream
 import java.io.IOException
 import java.io.InputStream
 import java.util.Objects
+import java.util.concurrent.CompletableFuture
+import java.util.concurrent.ExecutorService
+import java.util.concurrent.Executors
 
 class BilibiliSubchunkInputStream(
     private val execute: (Request) -> Response,
@@ -33,6 +38,15 @@ class BilibiliSubchunkInputStream(
     private var closed = false
     private val singleByte = ByteArray(1)
 
+    private var prefetchedIndex = -1
+    private var prefetchFuture: CompletableFuture<InputStream>? = null
+
+    init {
+        if (subRanges.size > 1) {
+            triggerPrefetch(1)
+        }
+    }
+
     override fun read(): Int = if (read(singleByte, 0, 1) == -1) -1 else singleByte[0].toInt() and 0xff
 
     override fun read(bytes: ByteArray, offset: Int, count: Int): Int {
@@ -55,11 +69,51 @@ class BilibiliSubchunkInputStream(
                 if (currentIndex >= subRanges.size) {
                     return -1
                 }
-                currentStream = openSubchunk(currentIndex)
+                currentStream = obtainSubchunkStream(currentIndex)
+                triggerPrefetch(currentIndex + 1)
                 continue
             }
             return 0
         }
+    }
+
+    private fun obtainSubchunkStream(index: Int): InputStream {
+        if (index == prefetchedIndex && prefetchFuture != null) {
+            val future = prefetchFuture
+            prefetchedIndex = -1
+            prefetchFuture = null
+            try {
+                return future!!.get()
+            } catch (_: Exception) {
+                // Prefetch failed or cancelled; fallback to on-demand openSubchunk
+            }
+        }
+        return openSubchunk(index)
+    }
+
+    private fun triggerPrefetch(targetIndex: Int) {
+        if (targetIndex >= subRanges.size || closed) return
+        prefetchedIndex = targetIndex
+        prefetchFuture = CompletableFuture.supplyAsync({
+            if (closed || Thread.currentThread().isInterrupted) {
+                throw IOException("Stream closed before prefetch")
+            }
+            checkActive()
+            val opened = openSubchunk(targetIndex)
+            val buffer = ByteArrayOutputStream()
+            val temp = ByteArray(32 * 1024)
+            opened.use { input ->
+                while (true) {
+                    if (closed || Thread.currentThread().isInterrupted) {
+                        throw IOException("Stream closed during prefetch")
+                    }
+                    val read = input.read(temp)
+                    if (read < 0) break
+                    buffer.write(temp, 0, read)
+                }
+            }
+            ByteArrayInputStream(buffer.toByteArray())
+        }, prefetchExecutor)
     }
 
     private fun openSubchunk(index: Int): InputStream {
@@ -76,18 +130,22 @@ class BilibiliSubchunkInputStream(
                 .url(currentUrl)
                 .header("Range", "bytes=${range.start}-${range.end}")
                 .build()
+            val startMs = System.currentTimeMillis()
             val response = try {
                 execute(currentRequest)
             } catch (error: IOException) {
+                BilibiliMirrorSpeedTracker.recordFailure(currentUrl)
                 lastError = error
                 continue
             }
             if (!response.isSuccessful) {
                 val code = response.code
                 response.close()
+                BilibiliMirrorSpeedTracker.recordFailure(currentUrl)
                 lastError = IOException("Upstream returned $code for subchunk bytes=${range.start}-${range.end}")
                 continue
             }
+            BilibiliMirrorSpeedTracker.recordSuccess(currentUrl, System.currentTimeMillis() - startMs)
             val remainingMirrors = mirrors.filter { it != currentUrl }
             return RetryingProxyInputStream(
                 execute = execute,
@@ -104,8 +162,18 @@ class BilibiliSubchunkInputStream(
     override fun close() {
         if (!closed) {
             closed = true
+            prefetchFuture?.cancel(true)
+            prefetchFuture = null
             currentStream?.close()
             currentStream = null
+        }
+    }
+
+    companion object {
+        private val prefetchExecutor: ExecutorService = Executors.newCachedThreadPool { runnable ->
+            Thread(runnable, "bilibili-subchunk-prefetch").apply {
+                isDaemon = true
+            }
         }
     }
 }

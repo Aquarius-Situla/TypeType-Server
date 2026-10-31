@@ -12,8 +12,8 @@ class BilibiliUposMirrorsTest {
 
         assertEquals(
             listOf(
-                "upos-sz-mirrorcosov.bilivideo.com",
                 "upos-sz-mirroraliov.bilivideo.com",
+                "upos-sz-mirrorcosov.bilivideo.com",
                 "upos-sz-mirrorali.bilivideo.com",
                 "upos-sz-mirrorhw.bilivideo.com",
                 "upos-sz-mirrorcos.bilivideo.com",

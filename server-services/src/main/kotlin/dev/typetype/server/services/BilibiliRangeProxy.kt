@@ -90,17 +90,21 @@ private fun readBilibiliSubchunkedRange(
         val firstRequest = baseWithActiveUrl.newBuilder()
             .header("Range", "bytes=${firstRange.start}-${firstRange.end}")
             .build()
+        val attemptStart = System.currentTimeMillis()
         val response = try {
             execute(firstRequest)
         } catch (error: IOException) {
+            BilibiliMirrorSpeedTracker.recordFailure(activeUrl)
             lastMessage = error.message ?: "Proxy fetch failed"
             continue
         }
         if (!response.isSuccessful) {
+            BilibiliMirrorSpeedTracker.recordFailure(activeUrl)
             lastMessage = "Upstream returned ${response.code}"
             response.close()
             continue
         }
+        BilibiliMirrorSpeedTracker.recordSuccess(activeUrl, System.currentTimeMillis() - attemptStart)
 
         if (response.code != 206) {
             val stream = RetryingProxyInputStream(execute, firstRequest, response, BILIBILI_RANGE_ATTEMPTS - attempt, checkActive)
@@ -165,14 +169,18 @@ private fun readBilibiliDirectRange(
         val response = try {
             execute(opening)
         } catch (error: IOException) {
+            BilibiliMirrorSpeedTracker.recordFailure(mirror)
             lastMessage = error.message ?: "Proxy fetch failed"
             continue
         }
         if (!response.isSuccessful) {
+            BilibiliMirrorSpeedTracker.recordFailure(mirror)
             lastMessage = "Upstream returned ${response.code}"
             response.close()
             continue
         }
+        val elapsedMs = (nanoTime() - openStarted).coerceAtLeast(0) / 1_000_000
+        BilibiliMirrorSpeedTracker.recordSuccess(mirror, elapsedMs)
         val otherMirrors = mirrors - mirror
         val switcher = if (otherMirrors.isNotEmpty() && mirrorExecute != null && mirrorPermits != null) {
             BilibiliSlowMirrorSwitcher(

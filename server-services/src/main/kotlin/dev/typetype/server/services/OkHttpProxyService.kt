@@ -45,6 +45,11 @@ class OkHttpProxyService(
             .readTimeout(MIRROR_READ_TIMEOUT_SECONDS, TimeUnit.SECONDS)
             .build(),
     )
+    private val bilibiliProxyClient = client.newBuilder()
+        .connectTimeout(BILIBILI_PROXY_CONNECT_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+        .readTimeout(BILIBILI_PROXY_READ_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+        .build()
+    private val bilibiliProxyExecutor = ProxyHttpExecutor(bilibiliProxyClient)
 
     override suspend fun pipe(url: String, rangeHeader: String?, domandBid: String?): ExtractionResult<ProxyResponse> =
         pipeInternal(url, rangeHeader, domandBid, providerMediaManifest = false)
@@ -98,13 +103,13 @@ class OkHttpProxyService(
                         emptyList()
                     }
                     return@withContext readBilibiliRangeWithRetry(
-                        requestExecutor::execute,
+                        bilibiliProxyExecutor::execute,
                         request,
                         requestContext::ensureActive,
                         safeAlternates,
                         mirrorExecutor::execute,
                         mirrorPermits,
-                        client.readTimeoutMillis,
+                        bilibiliProxyClient.readTimeoutMillis,
                     )
                 }
                 requestExecutor.execute(request)
@@ -204,6 +209,8 @@ class OkHttpProxyService(
         private const val MAX_ALTERNATE_URLS = 4
         private const val MIRROR_CONNECT_TIMEOUT_SECONDS = 2L
         private const val MIRROR_READ_TIMEOUT_SECONDS = 2L
+        private const val BILIBILI_PROXY_CONNECT_TIMEOUT_SECONDS = 3L
+        private const val BILIBILI_PROXY_READ_TIMEOUT_SECONDS = 8L
         private const val BILIBILI_REFERER = "https://www.bilibili.com"
         private const val ACCEPT_ANY = "*/*"
         private const val PROXY_PATH = "proxy"
