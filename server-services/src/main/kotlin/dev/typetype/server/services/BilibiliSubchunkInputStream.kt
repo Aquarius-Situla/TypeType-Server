@@ -13,6 +13,7 @@ class BilibiliSubchunkInputStream(
     firstResponse: Response,
     private val attemptsPerChunk: Int = 3,
     private val checkActive: () -> Unit = {},
+    private val alternateUrls: List<String> = emptyList(),
 ) : InputStream() {
     init {
         require(subRanges.isNotEmpty()) { "subRanges must not be empty" }
@@ -27,6 +28,7 @@ class BilibiliSubchunkInputStream(
         initialResponse = firstResponse,
         attemptsRemaining = (attemptsPerChunk - 1).coerceAtLeast(0),
         checkActive = checkActive,
+        resumeUrls = alternateUrls,
     )
     private var closed = false
     private val singleByte = ByteArray(1)
@@ -85,6 +87,7 @@ class BilibiliSubchunkInputStream(
                 initialResponse = response,
                 attemptsRemaining = attemptsPerChunk - attempt,
                 checkActive = checkActive,
+                resumeUrls = alternateUrls,
             )
         }
         throw lastError ?: IOException("Failed to open subchunk after $attemptsPerChunk attempts")

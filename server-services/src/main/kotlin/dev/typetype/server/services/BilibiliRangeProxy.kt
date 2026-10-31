@@ -19,6 +19,15 @@ fun readBilibiliRangeWithRetry(
     streamReadTimeoutMillis: Int = 10_000,
     nanoTime: () -> Long = System::nanoTime,
 ): ExtractionResult<ProxyResponse> {
+    val isAkamaiBlacklisted = BilibiliAkamaiConfig.isAkamaiBlacklisted()
+    val rawMirrors = listOf(request.url.toString()) + alternateUrls
+    val mirrors = if (isAkamaiBlacklisted) {
+        val nonAkamai = rawMirrors.filter { !BilibiliAkamaiConfig.isAkamaiUrl(it) }
+        if (nonAkamai.isNotEmpty()) nonAkamai else rawMirrors
+    } else {
+        rawMirrors
+    }
+
     val rangeHeader = request.header("Range")
     val parsedRange = BilibiliRangeSplitter.parseRange(rangeHeader)
 
@@ -27,11 +36,27 @@ fun readBilibiliRangeWithRetry(
         val end = parsedRange.second!!
         val length = end - start + 1
         if (length > MAX_BILIBILI_SUBCHUNK_SIZE && start <= end) {
-            return readBilibiliSubchunkedRange(execute, request, start, end, checkActive)
+            return readBilibiliSubchunkedRange(
+                execute = execute,
+                request = request,
+                start = start,
+                end = end,
+                checkActive = checkActive,
+                mirrors = mirrors,
+            )
         }
     }
 
-    return readBilibiliDirectRange(execute, request, checkActive)
+    return readBilibiliDirectRange(
+        execute = execute,
+        request = request,
+        checkActive = checkActive,
+        mirrors = mirrors,
+        mirrorExecute = mirrorExecute,
+        mirrorPermits = mirrorPermits,
+        streamReadTimeoutMillis = streamReadTimeoutMillis,
+        nanoTime = nanoTime,
+    )
 }
 
 private fun readBilibiliSubchunkedRange(
@@ -40,10 +65,13 @@ private fun readBilibiliSubchunkedRange(
     start: Long,
     end: Long,
     checkActive: () -> Unit,
+    mirrors: List<String>,
 ): ExtractionResult<ProxyResponse> {
     val subRanges = BilibiliRangeSplitter.splitRange(start, end, MAX_BILIBILI_SUBCHUNK_SIZE)
     val firstRange = subRanges[0]
-    val firstRequest = request.newBuilder()
+    val activeUrl = mirrors.first()
+    val baseWithActiveUrl = if (activeUrl == request.url.toString()) request else request.newBuilder().url(activeUrl).build()
+    val firstRequest = baseWithActiveUrl.newBuilder()
         .header("Range", "bytes=${firstRange.start}-${firstRange.end}")
         .build()
 
@@ -81,13 +109,15 @@ private fun readBilibiliSubchunkedRange(
         val compositeContentRange = "bytes $start-$end/$totalPart"
         val totalRequestedBytes = end - start + 1
 
+        val otherMirrors = mirrors - activeUrl
         val stream = BilibiliSubchunkInputStream(
             execute = execute,
-            baseRequest = request,
+            baseRequest = baseWithActiveUrl,
             subRanges = subRanges,
             firstResponse = response,
             attemptsPerChunk = BILIBILI_RANGE_ATTEMPTS,
             checkActive = checkActive,
+            alternateUrls = otherMirrors,
         )
 
         return ExtractionResult.Success(ProxyResponse(
@@ -108,13 +138,17 @@ private fun readBilibiliDirectRange(
     execute: (Request) -> Response,
     request: Request,
     checkActive: () -> Unit,
+    mirrors: List<String>,
+    mirrorExecute: ((Request) -> Response)? = null,
+    mirrorPermits: Semaphore? = null,
+    streamReadTimeoutMillis: Int = 10_000,
+    nanoTime: () -> Long = System::nanoTime,
 ): ExtractionResult<ProxyResponse> {
     var lastMessage = "Proxy fetch failed"
-    val mirrors = listOf(request.url.toString()) + alternateUrls
     for (attempt in 1..BILIBILI_RANGE_ATTEMPTS) {
         checkActive()
         val mirror = mirrors[(attempt - 1) % mirrors.size]
-        val opening = if (mirror == mirrors.first()) request else request.newBuilder().url(mirror).build()
+        val opening = if (mirror == request.url.toString()) request else request.newBuilder().url(mirror).build()
         val openStarted = nanoTime()
         val response = try {
             execute(opening)
@@ -135,8 +169,10 @@ private fun readBilibiliDirectRange(
         } else {
             null
         }
-        val stream = RetryingProxyInputStream(execute, opening, response, BILIBILI_RANGE_ATTEMPTS - attempt,
-            checkActive, switcher, (nanoTime() - openStarted).coerceAtLeast(0), nanoTime, otherMirrors)
+        val stream = RetryingProxyInputStream(
+            execute, opening, response, BILIBILI_RANGE_ATTEMPTS - attempt,
+            checkActive, switcher, (nanoTime() - openStarted).coerceAtLeast(0), nanoTime, otherMirrors,
+        )
         return ExtractionResult.Success(ProxyResponse(
             status = response.code,
             contentType = response.header("Content-Type") ?: "application/octet-stream",
