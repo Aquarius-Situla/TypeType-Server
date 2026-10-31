@@ -5,8 +5,8 @@ import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 private val UPOS_MIRROR_HOST = Regex("""upos-[a-z]+-mirror[a-z0-9]+\.(bilivideo\.com|akamaized\.net)""")
 
 val ALL_UPOS_MIRROR_HOSTS = listOf(
-    "upos-sz-mirroraliov.bilivideo.com",
     "upos-sz-mirrorcosov.bilivideo.com",
+    "upos-sz-mirroraliov.bilivideo.com",
     "upos-sz-mirrorali.bilivideo.com",
     "upos-sz-mirrorhw.bilivideo.com",
     "upos-sz-mirrorcos.bilivideo.com",
