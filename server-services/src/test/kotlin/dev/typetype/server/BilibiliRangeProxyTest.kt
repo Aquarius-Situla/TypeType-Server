@@ -12,6 +12,7 @@ import okhttp3.ResponseBody.Companion.toResponseBody
 import org.junit.jupiter.api.Assertions.assertArrayEquals
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import okio.buffer
@@ -383,5 +384,56 @@ class BilibiliRangeProxyTest {
         assertTrue(zeroReturned, "Zero-byte read should have occurred")
         assertArrayEquals(fullData, out.toByteArray())
     }
-}
+    @Test
+    fun `BiliBili subchunk proxy excludes Akamai and prioritizes fast mirrors when blacklisted`() = runBlocking {
+        System.setProperty("BILIBILI_BLACKLIST_AKAMAI_CDN", "true")
+        try {
+            val totalRequested = 2_000_000L
+            val fullData = ByteArray(totalRequested.toInt()) { (it % 256).toByte() }
+            val mirrorHostsCalled = mutableListOf<String>()
 
+            val client = okhttp3.OkHttpClient.Builder()
+                .dns(Dns { listOf(InetAddress.getByName("1.1.1.1")) })
+                .addInterceptor { chain ->
+                    val host = chain.request().url.host
+                    mirrorHostsCalled.add(host)
+                    val rangeHeader = chain.request().header("Range") ?: "bytes=0-999999"
+                    val match = Regex("""bytes=(\d+)-(\d+)""").find(rangeHeader)!!
+                    val s = match.groupValues[1].toInt()
+                    val e = match.groupValues[2].toInt()
+                    val slice = fullData.copyOfRange(s, e + 1)
+                    Response.Builder()
+                        .request(chain.request())
+                        .protocol(Protocol.HTTP_1_1)
+                        .code(206)
+                        .message("Partial Content")
+                        .header("Content-Range", "bytes $s-$e/$totalRequested")
+                        .body(slice.toResponseBody())
+                        .build()
+                }
+                .build()
+
+            val service = OkHttpProxyService(client)
+            val result = service.pipeProviderMediaWithAlternates(
+                url = "https://upos-hz-mirrorakam.akamaized.net/video.m4s",
+                rangeHeader = "bytes=0-${totalRequested - 1}",
+                domandBid = null,
+                alternateUrls = listOf(
+                    "https://upos-sz-mirrorcos.bilivideo.com/video.m4s",
+                    "https://upos-sz-mirrorali.bilivideo.com/video.m4s",
+                ),
+            )
+
+            assertTrue(result is dev.typetype.server.models.ExtractionResult.Success)
+            val receivedData = (result as dev.typetype.server.models.ExtractionResult.Success).data.stream.use { it.readBytes() }
+            assertArrayEquals(fullData, receivedData)
+
+            // Akamai should NOT have been called at all
+            assertFalse(mirrorHostsCalled.any { it.contains("akamaized") })
+            // Even though mirrorcos was first in alternateUrls, mirrorali is prioritized higher
+            assertEquals("upos-sz-mirrorali.bilivideo.com", mirrorHostsCalled[0])
+        } finally {
+            System.clearProperty("BILIBILI_BLACKLIST_AKAMAI_CDN")
+        }
+    }
+}

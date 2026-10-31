@@ -11,7 +11,13 @@ class BilibiliUposMirrorsTest {
         val alternates = bilibiliUposMirrorAlternates(url)
 
         assertEquals(
-            listOf("upos-sz-mirrorcos.bilivideo.com", "upos-sz-mirrorali.bilivideo.com", "upos-sz-mirrorhw.bilivideo.com"),
+            listOf(
+                "upos-sz-mirroraliov.bilivideo.com",
+                "upos-sz-mirrorcosov.bilivideo.com",
+                "upos-sz-mirrorali.bilivideo.com",
+                "upos-sz-mirrorhw.bilivideo.com",
+                "upos-sz-mirrorcos.bilivideo.com",
+            ),
             alternates.map { it.substringAfter("://").substringBefore('/') },
         )
         assertEquals(
@@ -24,5 +30,25 @@ class BilibiliUposMirrorsTest {
     fun `other Bilibili hosts get no guessed mirrors`() {
         assertEquals(emptyList<String>(), bilibiliUposMirrorAlternates("https://xy1x2x3x4xy.mcdn.bilivideo.cn:4483/v.m4s?os=mcdn"))
         assertEquals(emptyList<String>(), bilibiliUposMirrorAlternates("https://cn-gdfs-ct-01-01.bilivideo.com/v.m4s"))
+    }
+
+    @Test
+    fun `prioritizeUposMirrors sorts hosts according to priority order`() {
+        val input = listOf(
+            "https://upos-sz-mirrorcos.bilivideo.com/video.m4s",
+            "https://upos-sz-mirrorali.bilivideo.com/video.m4s",
+            "https://upos-sz-mirroraliov.bilivideo.com/video.m4s",
+            "https://upos-sz-mirrorhw.bilivideo.com/video.m4s",
+        )
+        val sorted = prioritizeUposMirrors(input)
+        assertEquals(
+            listOf(
+                "https://upos-sz-mirroraliov.bilivideo.com/video.m4s",
+                "https://upos-sz-mirrorali.bilivideo.com/video.m4s",
+                "https://upos-sz-mirrorhw.bilivideo.com/video.m4s",
+                "https://upos-sz-mirrorcos.bilivideo.com/video.m4s",
+            ),
+            sorted,
+        )
     }
 }

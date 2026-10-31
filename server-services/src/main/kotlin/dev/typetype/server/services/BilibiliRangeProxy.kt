@@ -20,7 +20,19 @@ fun readBilibiliRangeWithRetry(
     nanoTime: () -> Long = System::nanoTime,
 ): ExtractionResult<ProxyResponse> {
     val isAkamaiBlacklisted = BilibiliAkamaiConfig.isAkamaiBlacklisted()
-    val rawMirrors = listOf(request.url.toString()) + alternateUrls
+    val isPrimaryAkamai = BilibiliAkamaiConfig.isAkamaiUrl(request.url.toString())
+    val effectiveAlternates = if (alternateUrls.isEmpty()) {
+        bilibiliUposMirrorAlternates(request.url.toString(), isAkamaiBlacklisted)
+    } else {
+        alternateUrls
+    }
+    val sortedAlternates = prioritizeUposMirrors(effectiveAlternates.distinct())
+
+    val rawMirrors = if (isAkamaiBlacklisted && isPrimaryAkamai) {
+        sortedAlternates.filter { !BilibiliAkamaiConfig.isAkamaiUrl(it) }
+    } else {
+        listOf(request.url.toString()) + sortedAlternates.filter { it != request.url.toString() }
+    }
     val mirrors = if (isAkamaiBlacklisted) {
         val nonAkamai = rawMirrors.filter { !BilibiliAkamaiConfig.isAkamaiUrl(it) }
         if (nonAkamai.isNotEmpty()) nonAkamai else rawMirrors

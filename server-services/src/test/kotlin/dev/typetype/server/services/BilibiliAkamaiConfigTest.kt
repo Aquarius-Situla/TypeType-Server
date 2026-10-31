@@ -49,7 +49,12 @@ class BilibiliAkamaiConfigTest {
         val withoutAkamai = bilibiliUposMirrorAlternates(cosUrl, isAkamaiBlacklisted = true)
         assertFalse(withoutAkamai.any { it.contains("akamaized.net") })
         assertEquals(
-            listOf("upos-sz-mirrorali.bilivideo.com", "upos-sz-mirrorhw.bilivideo.com"),
+            listOf(
+                "upos-sz-mirroraliov.bilivideo.com",
+                "upos-sz-mirrorcosov.bilivideo.com",
+                "upos-sz-mirrorali.bilivideo.com",
+                "upos-sz-mirrorhw.bilivideo.com",
+            ),
             withoutAkamai.map { it.substringAfter("://").substringBefore('/') },
         )
     }
@@ -60,9 +65,15 @@ class BilibiliAkamaiConfigTest {
 
         val alternates = bilibiliUposMirrorAlternates(akamUrl, isAkamaiBlacklisted = true)
         assertFalse(alternates.any { it.contains("akamaized.net") })
-        assertEquals(3, alternates.size)
+        assertEquals(5, alternates.size)
         assertEquals(
-            listOf("upos-sz-mirrorcos.bilivideo.com", "upos-sz-mirrorali.bilivideo.com", "upos-sz-mirrorhw.bilivideo.com"),
+            listOf(
+                "upos-sz-mirroraliov.bilivideo.com",
+                "upos-sz-mirrorcosov.bilivideo.com",
+                "upos-sz-mirrorali.bilivideo.com",
+                "upos-sz-mirrorhw.bilivideo.com",
+                "upos-sz-mirrorcos.bilivideo.com",
+            ),
             alternates.map { it.substringAfter("://").substringBefore('/') },
         )
     }

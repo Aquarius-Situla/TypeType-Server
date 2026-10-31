@@ -17,7 +17,7 @@ object BilibiliAkamaiConfig {
      *
      * Default: `false` (Akamai is not blacklisted unless configured by the user).
      */
-    fun isAkamaiBlacklisted(getEnv: (String) -> String? = System::getenv): Boolean {
+    fun isAkamaiBlacklisted(getEnv: (String) -> String? = { System.getenv(it) ?: System.getProperty(it) }): Boolean {
         val blacklist = getEnv(BLACKLIST_ENV)?.trim()?.lowercase()
         if (blacklist != null) {
             if (blacklist in TRUE_VALUES) return true
