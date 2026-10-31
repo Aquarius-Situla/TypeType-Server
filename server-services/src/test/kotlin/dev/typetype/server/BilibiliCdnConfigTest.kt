@@ -12,10 +12,10 @@ class BilibiliCdnConfigTest {
     fun `resolves region from client or environment default`() {
         assertEquals("overseas", BilibiliCdnConfig.resolveRegion("overseas"))
         assertEquals("domestic", BilibiliCdnConfig.resolveRegion("domestic"))
-        assertEquals("auto", BilibiliCdnConfig.resolveRegion("auto") { null })
+        assertEquals("overseas", BilibiliCdnConfig.resolveRegion("auto") { null })
         assertEquals("overseas", BilibiliCdnConfig.resolveRegion("auto") { "overseas" })
         assertEquals("domestic", BilibiliCdnConfig.resolveRegion("auto") { "domestic" })
-        assertEquals("auto", BilibiliCdnConfig.resolveRegion(null) { null })
+        assertEquals("overseas", BilibiliCdnConfig.resolveRegion(null) { null })
         assertEquals("overseas", BilibiliCdnConfig.resolveRegion(null) { "overseas" })
         assertEquals("domestic", BilibiliCdnConfig.resolveRegion(null) { "domestic" })
     }

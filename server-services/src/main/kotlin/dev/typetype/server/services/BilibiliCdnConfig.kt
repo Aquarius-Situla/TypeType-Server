@@ -7,17 +7,15 @@ object BilibiliCdnConfig {
     fun defaultRegion(getEnv: (String) -> String? = { System.getenv(it) ?: System.getProperty(it) }): String {
         val region = getEnv(CDN_REGION_ENV) ?: getEnv(SERVER_REGION_ENV)
         return when (region?.trim()?.lowercase()) {
-            "overseas", "oversea", "ov", "foreign" -> "overseas"
             "domestic", "cn", "china", "mainland" -> "domestic"
-            else -> "auto"
+            else -> "overseas"
         }
     }
 
     fun resolveRegion(clientRegion: String?, getEnv: (String) -> String? = { System.getenv(it) ?: System.getProperty(it) }): String {
         return when (clientRegion?.trim()?.lowercase()) {
-            "overseas", "oversea", "ov" -> "overseas"
             "domestic", "cn", "mainland" -> "domestic"
-            "auto", null, "" -> defaultRegion(getEnv)
+            "overseas", "oversea", "ov", "foreign" -> "overseas"
             else -> defaultRegion(getEnv)
         }
     }
