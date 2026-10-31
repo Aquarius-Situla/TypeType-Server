@@ -17,7 +17,7 @@ object BilibiliCdnConfig {
         return when (clientRegion?.trim()?.lowercase()) {
             "overseas", "oversea", "ov" -> "overseas"
             "domestic", "cn", "mainland" -> "domestic"
-            "auto" -> "auto"
+            "auto", null, "" -> defaultRegion(getEnv)
             else -> defaultRegion(getEnv)
         }
     }
