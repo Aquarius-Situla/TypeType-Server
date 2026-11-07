@@ -152,4 +152,20 @@ class BilibiliMirrorSpeedTrackerTest {
             BilibiliMirrorSpeedTracker.hasFreshMeasurement(url, nowMs = 1_000 + BilibiliMirrorSpeedTracker.FRESHNESS_WINDOW_MS + 1)
         )
     }
+
+    @Test
+    fun `detects fast host and finds probe candidates when candidate has no recent measurement`() {
+        val active = "https://upos-sz-mirroraliov.bilivideo.com/v.m4s"
+        val knownSlow = "https://upos-sz-mirrorcosov.bilivideo.com/v.m4s"
+        val unmeasured = "https://upos-sz-mirrorhw.bilivideo.com/v.m4s"
+
+        BilibiliMirrorSpeedTracker.recordThroughput(active, 3_000_000.0)
+        assertTrue(BilibiliMirrorSpeedTracker.isFastHost(active))
+        assertTrue(BilibiliMirrorSpeedTracker.hasFreshMeasurement(active))
+
+        BilibiliMirrorSpeedTracker.recordThroughput(knownSlow, 500_000.0)
+
+        val candidate = BilibiliMirrorSpeedTracker.findProbeCandidate(listOf(active, knownSlow, unmeasured), active)
+        assertEquals(unmeasured, candidate)
+    }
 }
