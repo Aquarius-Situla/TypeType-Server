@@ -8,7 +8,7 @@ data class AiKitConfig(
     val dailyRequestLimit: Int = DEFAULT_DAILY_REQUEST_LIMIT,
 ) {
     companion object {
-        const val DEFAULT_TIMEOUT_MS: Long = 15_000L
+        const val DEFAULT_TIMEOUT_MS: Long = 25_000L
         const val MIN_TIMEOUT_MS: Long = 1_000L
         const val MAX_TIMEOUT_MS: Long = 120_000L
         const val DEFAULT_REQUESTS_PER_MINUTE: Int = 15

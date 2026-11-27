@@ -26,7 +26,9 @@ class AiKitConfigTest {
         assertEquals(AiKitConfig.DEFAULT_REQUESTS_PER_MINUTE, kitConfig.requestsPerMinute)
         assertEquals(AiKitConfig.DEFAULT_DAILY_REQUEST_LIMIT, kitConfig.dailyRequestLimit)
         assertFalse(geminiConfig.enabled)
+        assertEquals("gemini-3.8-flash", GeminiConfig.DEFAULT_MODEL)
         assertEquals(GeminiConfig.DEFAULT_MODEL, geminiConfig.model)
+        assertEquals("medium", geminiConfig.thinkingLevel)
         assertEquals(GeminiConfig.DEFAULT_BASE_URL, geminiConfig.baseUrl)
         assertFalse(kit.enabled)
         assertNull(kit.providerId)
@@ -56,8 +58,21 @@ class AiKitConfigTest {
         assertTrue(aqConfig.enabled)
         assertEquals("AQ.test-key-123", aqConfig.apiKey)
         assertEquals("gemini-2.5-flash-lite", aqConfig.model)
+        assertNull(aqConfig.thinkingLevel)
         assertEquals("https://gateway.example.invalid", aqConfig.baseUrl)
         assertTrue(aizaConfig.enabled)
+
+        val thinkingOff = GeminiConfig.fromEnvironment(
+            env = mapOf("AI_GEMINI_THINKING_LEVEL" to "off")::get,
+            secret = { "AQ.key" },
+        )
+        assertNull(thinkingOff.thinkingLevel)
+
+        val thinkingLow = GeminiConfig.fromEnvironment(
+            env = mapOf("AI_GEMINI_THINKING_LEVEL" to " LOW ")::get,
+            secret = { "AQ.key" },
+        )
+        assertEquals("low", thinkingLow.thinkingLevel)
 
         val lowTimeout = AiKitConfig.fromEnvironment(mapOf("AI_TIMEOUT_MS" to "10")::get)
         assertEquals(AiKitConfig.MIN_TIMEOUT_MS, lowTimeout.timeoutMs)

@@ -12,7 +12,7 @@ internal object FocusAiPromptBuilder {
     private const val MAX_DESCRIPTION_CHARS = 1_200
     private const val MAX_REASON_CHARS = 500
     private const val MAX_TITLE_CHARS = 240
-    private const val MAX_OUTPUT_TOKENS = 512
+    private const val MAX_OUTPUT_TOKENS = 2_048
     private const val TEMPERATURE = 0.2
 
     val SCORE_SCHEMA: JsonObject = buildJsonObject {
