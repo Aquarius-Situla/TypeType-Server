@@ -3,6 +3,7 @@ package dev.typetype.server.ai
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonArray
@@ -11,7 +12,7 @@ import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 
 object GeminiCodec {
-    fun buildRequestBody(request: AiCompletionRequest): String = buildJsonObject {
+    fun buildRequestBody(request: AiCompletionRequest, thinkingLevel: String? = null): String = buildJsonObject {
         val systemText = request.systemPrompt?.trim()?.takeIf { it.isNotEmpty() }
         if (systemText != null) {
             put(
@@ -32,7 +33,7 @@ object GeminiCodec {
                 )
             },
         )
-        buildGenerationConfig(request)?.let { put("generationConfig", it) }
+        buildGenerationConfig(request, thinkingLevel)?.let { put("generationConfig", it) }
     }.toString()
 
     fun parseSuccessText(body: String): String? {
@@ -43,7 +44,8 @@ object GeminiCodec {
         val parts = content["parts"] as? JsonArray ?: return null
         val text = parts.mapNotNull { part ->
             val obj = part as? JsonObject ?: return@mapNotNull null
-            obj["text"]?.jsonPrimitive?.takeIf { it.isString }?.content
+            if ((obj["thought"] as? JsonPrimitive)?.content == "true") return@mapNotNull null
+            (obj["text"] as? JsonPrimitive)?.takeIf { it.isString }?.content
         }.joinToString(separator = "")
         return text.takeIf { it.isNotBlank() }
     }
@@ -94,17 +96,26 @@ object GeminiCodec {
         }
     }
 
-    private fun buildGenerationConfig(request: AiCompletionRequest): JsonObject? {
+    private fun buildGenerationConfig(request: AiCompletionRequest, thinkingLevel: String?): JsonObject? {
         val temperature = request.temperature?.takeIf { it.isFinite() }
         val maxTokens = request.maxOutputTokens?.takeIf { it > 0 }
         val jsonFormat = request.responseFormat as? AiResponseFormat.Json
-        if (temperature == null && maxTokens == null && jsonFormat == null) return null
+        val thinking = thinkingLevel?.trim()?.takeIf { it.isNotEmpty() }
+        if (temperature == null && maxTokens == null && jsonFormat == null && thinking == null) return null
         return buildJsonObject {
             if (temperature != null) put("temperature", temperature)
             if (maxTokens != null) put("maxOutputTokens", maxTokens)
             if (jsonFormat != null) {
                 put("responseMimeType", "application/json")
                 jsonFormat.schema?.let { put("responseSchema", it) }
+            }
+            if (thinking != null) {
+                put(
+                    "thinkingConfig",
+                    buildJsonObject {
+                        put("thinkingLevel", thinking)
+                    },
+                )
             }
         }
     }

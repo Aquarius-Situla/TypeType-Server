@@ -43,7 +43,7 @@ class GeminiProvider(
     override suspend fun complete(request: AiCompletionRequest): AiCompletionResult {
         val apiKey = config.apiKey?.trim()?.takeIf { it.isNotEmpty() }
             ?: return AiCompletionResult.Disabled
-        val payload = GeminiCodec.buildRequestBody(request)
+        val payload = GeminiCodec.buildRequestBody(request, config.thinkingLevel)
         val httpRequest = Request.Builder()
             .url(endpoint)
             .header(API_KEY_HEADER, apiKey)

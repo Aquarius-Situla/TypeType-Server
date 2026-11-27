@@ -41,7 +41,7 @@ class FocusAiPromptBuilderTest {
         assertTrue(request.userPrompt.contains("ThumbnailAttached: true"))
         assertEquals(listOf(image), request.images)
         assertEquals(AiResponseFormat.Json(FocusAiPromptBuilder.SCORE_SCHEMA), request.responseFormat)
-        assertEquals(512, request.maxOutputTokens)
+        assertEquals(2_048, request.maxOutputTokens)
 
         val rewatchRequest = FocusAiPromptBuilder.build(
             kind = FocusAllowOnceKind.ENTERTAINMENT_REWATCH,

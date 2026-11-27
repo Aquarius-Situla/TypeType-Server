@@ -37,7 +37,7 @@ class GeminiProviderTest {
             capturedQuery.set(exchange.requestURI.rawQuery)
             capturedHeader.set(exchange.requestHeaders.getFirst("x-goog-api-key"))
             capturedBody.set(exchange.requestBody.readAllBytes().toString(StandardCharsets.UTF_8))
-            val reply = """{"candidates":[{"content":{"parts":[{"text":"{\"allow\":true}"}]}}]}"""
+            val reply = """{"candidates":[{"content":{"parts":[{"thought":true,"text":"internal"},{"text":"{\"allow\":true}"}]}}]}"""
             respond(exchange, 200, reply)
         }
 
@@ -45,8 +45,9 @@ class GeminiProviderTest {
             val provider = GeminiProvider(
                 config = GeminiConfig(
                     apiKey = secret,
-                    model = "gemini-3.5-flash-lite",
+                    model = "gemini-3.8-flash",
                     baseUrl = "http://127.0.0.1:${server.address.port}",
+                    thinkingLevel = "medium",
                 ),
                 timeoutMs = 5_000L,
             )
@@ -63,10 +64,10 @@ class GeminiProviderTest {
             )
 
             assertEquals(
-                AiCompletionResult.Success("""{"allow":true}""", "gemini-3.5-flash-lite", "gemini", cached = false),
+                AiCompletionResult.Success("""{"allow":true}""", "gemini-3.8-flash", "gemini", cached = false),
                 result,
             )
-            assertEquals("/v1beta/models/gemini-3.5-flash-lite:generateContent", capturedPath.get())
+            assertEquals("/v1beta/models/gemini-3.8-flash:generateContent", capturedPath.get())
             assertNull(capturedQuery.get())
             assertEquals(secret, capturedHeader.get())
 
@@ -83,6 +84,10 @@ class GeminiProviderTest {
             val genCfg = sent["generationConfig"]?.jsonObject
             assertEquals("application/json", genCfg?.get("responseMimeType")?.jsonPrimitive?.content)
             assertEquals("OBJECT", genCfg?.get("responseSchema")?.jsonObject?.get("type")?.jsonPrimitive?.content)
+            assertEquals(
+                "medium",
+                genCfg?.get("thinkingConfig")?.jsonObject?.get("thinkingLevel")?.jsonPrimitive?.content,
+            )
         } finally {
             server.stop(0)
         }
