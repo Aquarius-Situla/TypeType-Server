@@ -42,6 +42,7 @@ internal object FocusAiPromptBuilder {
         snapshot: FocusVideoSnapshot,
         reason: String,
         thumbnail: AiImageInput?,
+        allowMusic: Boolean = false,
     ): AiCompletionRequest {
         val sceneInstruction = when (kind) {
             FocusAllowOnceKind.OUTSIDE_GROUP ->
@@ -73,6 +74,7 @@ internal object FocusAiPromptBuilder {
                 "2. Credibility & Video Match: The user's stated productive reason must be concrete, sincere, " +
                     "and genuinely consistent with the video's title, channel, description, and cover thumbnail.",
             )
+            if (allowMusic) appendMusicException()
             appendLine("Important anti-loophole rules:")
             appendLine(
                 "- Honesty alone does NOT pass: if the video is gossip, entertainment, drama, memes, gaming, or leisure — " +
@@ -107,6 +109,22 @@ internal object FocusAiPromptBuilder {
             maxOutputTokens = MAX_OUTPUT_TOKENS,
             temperature = TEMPERATURE,
             images = listOfNotNull(thumbnail),
+        )
+    }
+
+    private fun StringBuilder.appendMusicException() {
+        appendLine("Music Exception (enabled by server config):")
+        appendLine(
+            "- Genuine music listening (official songs, audio tracks, instrumentals, OSTs, albums, " +
+                "study/lo-fi playlists, covers, lyric videos, live music performances, or music videos) " +
+                "is PERMITTED (81-100) in both outside-group and entertainment-rewatch scenes when video metadata " +
+                "(title, channel, description, thumbnail) clearly confirms it is genuine music and the user " +
+                "sincerely wants to listen to it (including background music while studying or re-listening to a song).",
+        )
+        appendLine(
+            "- Non-music disguised as music does NOT pass: musician/celebrity gossip or drama, music reaction, " +
+                "commentary, ranking/tier-list videos, variety shows, meme edits, gaming montages, or non-music " +
+                "vlogs/podcasts that merely mention music must still score 0-20.",
         )
     }
 }

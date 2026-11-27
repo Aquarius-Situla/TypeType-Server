@@ -5,6 +5,7 @@ data class FocusAiConfig(
     val passScore: Int = DEFAULT_PASS_SCORE,
     val maxCooldownMinutes: Int = DEFAULT_MAX_COOLDOWN_MINUTES,
     val rejectionCooldownMinutes: Int = DEFAULT_REJECTION_COOLDOWN_MINUTES,
+    val allowMusic: Boolean = false,
 ) {
     companion object {
         const val DEFAULT_PASS_SCORE = 80
@@ -29,6 +30,7 @@ data class FocusAiConfig(
                 ?.toIntOrNull()
                 ?.coerceIn(MIN_MINUTES, MAX_MINUTES)
                 ?: DEFAULT_REJECTION_COOLDOWN_MINUTES,
+            allowMusic = env("FOCUS_AI_ALLOW_MUSIC")?.trim()?.equals("true", ignoreCase = true) == true,
         )
     }
 }
