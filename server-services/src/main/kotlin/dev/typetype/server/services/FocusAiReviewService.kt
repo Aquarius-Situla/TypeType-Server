@@ -47,7 +47,7 @@ internal class FocusAiReviewService(
         }
 
         val thumbnail = thumbnailFetcher.fetch(snapshot.thumbnailUrl)
-        val promptRequest = FocusAiPromptBuilder.build(kind, snapshot, reason, thumbnail)
+        val promptRequest = FocusAiPromptBuilder.build(kind, snapshot, reason, thumbnail, allowMusic = config.allowMusic)
         val aiResult = activeAi.complete(promptRequest)
         if (aiResult !is AiCompletionResult.Success) {
             logger.warn(
