@@ -109,4 +109,45 @@ class AiKitConfigTest {
             Files.deleteIfExists(secretFile)
         }
     }
+
+    @Test
+    fun `parses comma-separated fallback models deduplicates and adapts thinking level per model`() {
+        val multiConfig = GeminiConfig.fromEnvironment(
+            env = mapOf(
+                "AI_GEMINI_MODEL" to " gemini-4-hydrogen, , gemini-3.8-flash , gemini-4-hydrogen , gemini-3.5-flash-lite, ",
+            )::get,
+            secret = { "AQ.key" },
+        )
+        assertEquals("gemini-4-hydrogen", multiConfig.model)
+        assertEquals("gemini-4-hydrogen", multiConfig.primaryModel)
+        assertEquals(listOf("gemini-3.8-flash", "gemini-3.5-flash-lite"), multiConfig.fallbackModels)
+        assertEquals(listOf("gemini-4-hydrogen", "gemini-3.8-flash", "gemini-3.5-flash-lite"), multiConfig.models)
+        assertEquals("medium", multiConfig.thinkingLevel)
+        assertEquals("medium", multiConfig.thinkingLevelFor("gemini-4-hydrogen"))
+        assertEquals("medium", multiConfig.thinkingLevelFor("gemini-3.5-flash-lite"))
+        assertNull(multiConfig.thinkingLevelFor("gemini-2.5-flash-lite"))
+
+        val commaOnly = GeminiConfig.fromEnvironment(
+            env = mapOf("AI_GEMINI_MODEL" to " , , ")::get,
+            secret = { "AQ.key" },
+        )
+        assertEquals(listOf(GeminiConfig.DEFAULT_MODEL), commaOnly.models)
+        assertEquals(GeminiConfig.DEFAULT_MODEL, commaOnly.primaryModel)
+
+        val hydrogenOnly = GeminiConfig.fromEnvironment(
+            env = mapOf("AI_GEMINI_MODEL" to "gemini-4-hydrogen")::get,
+            secret = { "AQ.key" },
+        )
+        assertEquals("medium", hydrogenOnly.thinkingLevel)
+
+        val thinkingOff = GeminiConfig.fromEnvironment(
+            env = mapOf(
+                "AI_GEMINI_MODEL" to "gemini-4-hydrogen,gemini-3.5-flash-lite",
+                "AI_GEMINI_THINKING_LEVEL" to "off",
+            )::get,
+            secret = { "AQ.key" },
+        )
+        assertNull(thinkingOff.thinkingLevelFor("gemini-4-hydrogen"))
+        assertNull(thinkingOff.thinkingLevelFor("gemini-3.5-flash-lite"))
+    }
 }
