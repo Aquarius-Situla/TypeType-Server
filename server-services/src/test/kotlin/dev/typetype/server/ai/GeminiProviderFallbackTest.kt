@@ -148,7 +148,7 @@ class GeminiProviderFallbackTest {
                     val status = if (exchange.requestURI.path.contains("gemini-4-hydrogen")) 503 else 429
                     respond(exchange, status, """{"error":{"message":"down"}}""")
                 } else if (exchange.requestURI.path.contains("gemini-4-hydrogen")) {
-                    Thread.sleep(900L)
+                    Thread.sleep(1_200L)
                     runCatching { respond(exchange, 200, """{"candidates":[]}""") }
                 } else {
                     respond(exchange, 200, """{"candidates":[{"content":{"parts":[{"text":"fallback-ok"}]}}]}""")
@@ -163,7 +163,7 @@ class GeminiProviderFallbackTest {
                     model = "gemini-4-hydrogen,gemini-3.5-flash-lite",
                     baseUrl = "http://127.0.0.1:${server.address.port}",
                 ),
-                timeoutMs = 350L,
+                timeoutMs = 500L,
             )
             val recovered = provider.complete(AiCompletionRequest("hello"))
             assertEquals(
