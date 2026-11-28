@@ -19,6 +19,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Prepare build metadata
         id: meta
@@ -27,8 +29,11 @@ jobs:
           image_name="$(printf '%s' "$GITHUB_REPOSITORY" | tr '[:upper:]' '[:lower:]')"
           short_sha="${GITHUB_SHA:0:7}"
           build_time="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
-          version="$(grep -E '^appVersion=' gradle.properties | head -n1 | cut -d= -f2 | tr -d '\r')"
-          version="${version:-0.1.0}"
+          git fetch --tags --force --quiet https://github.com/TypeType-Video/TypeType-Server.git || true
+          tag_version="$(git tag --merged HEAD --sort=-v:refname 'v*' | awk '/^v[0-9]+\.[0-9]+\.[0-9]+$/ { if (!found) { sub(/^v/, ""); print; found=1 } }')"
+          fallback_version="$(awk -F= '/^appVersion=/ { gsub(/\r/, "", $2); if (!found) { print $2; found=1 } }' gradle.properties)"
+          version="${tag_version:-${fallback_version:-0.1.0}}"
+          echo "Resolved build version: ${version}-custom"
           {
             echo "image_name=$image_name"
             echo "short_sha=$short_sha"
