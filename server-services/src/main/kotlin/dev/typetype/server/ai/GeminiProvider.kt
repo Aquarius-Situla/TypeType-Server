@@ -93,8 +93,9 @@ class GeminiProvider(
         val attemptClient = clientForAttempt(attemptTimeoutMs)
         val startedAt = System.nanoTime()
         for (attempt in 0 until MAX_ATTEMPTS) {
+            val call = attemptClient.newCall(httpRequest)
             try {
-                return attemptClient.newCall(httpRequest).execute().use { response ->
+                return call.execute().use { response ->
                     val durationMs = (System.nanoTime() - startedAt) / MS_PER_NANOSECOND
                     GeminiResponseMapper.map(targetModel, response.code, response.body.string(), apiKey, durationMs)
                 }
@@ -102,7 +103,10 @@ class GeminiProvider(
                 attemptClient.connectionPool.evictAll()
                 val durationMs = (System.nanoTime() - startedAt) / MS_PER_NANOSECOND
                 val redacted = GeminiCodec.redactApiKey(e.message.orEmpty(), apiKey)
-                val willRetry = attempt == 0 && e !is InterruptedIOException
+                val willRetry = attempt == 0 &&
+                    !call.isCanceled() &&
+                    e !is InterruptedIOException &&
+                    durationMs < attemptTimeoutMs / 2L
                 logger.warn(
                     "gemini_request event=io_error model={} attempt={} retry={} durationMs={} errorType={} message={}",
                     targetModel,
